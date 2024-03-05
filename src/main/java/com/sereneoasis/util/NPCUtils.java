@@ -6,6 +6,8 @@ import com.mojang.authlib.GameProfile;
 import com.mojang.authlib.properties.Property;
 import com.mojang.authlib.properties.PropertyMap;
 import com.sereneoasis.SerenityEntities;
+import com.sereneoasis.entity.HumanEntity;
+import net.minecraft.core.BlockPos;
 import net.minecraft.network.Connection;
 import net.minecraft.network.protocol.PacketFlow;
 import net.minecraft.network.protocol.game.ClientboundAddEntityPacket;
@@ -22,6 +24,7 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.network.CommonListenerCookie;
 import net.minecraft.server.network.ServerGamePacketListenerImpl;
+import net.minecraft.server.network.ServerPlayerConnection;
 import net.minecraft.world.entity.HumanoidArm;
 import net.minecraft.world.entity.player.ChatVisiblity;
 import org.bukkit.Bukkit;
@@ -32,9 +35,11 @@ import org.bukkit.craftbukkit.v1_20_R2.entity.CraftPlayer;
 import org.bukkit.entity.Player;
 
 import java.io.IOException;
+import java.net.SocketAddress;
 import java.net.URL;
 import java.util.Collections;
 
+import java.util.EnumSet;
 import java.util.Scanner;
 import java.util.UUID;
 
@@ -47,18 +52,42 @@ public class NPCUtils {
         ServerLevel serverLevel = ((CraftWorld) location.getWorld()).getHandle();
         GameProfile gameProfile = new GameProfile(UUID.randomUUID(), name);
 
-
-        ServerPlayer serverPlayer = new ServerPlayer(minecraftServer, serverLevel, setSkin(skinUsersIGN, gameProfile), ClientInformation.createDefault());
+        net.minecraft.world.entity.player.Player nmsPlayer = ((CraftPlayer)player).getHandle();
+        Location loc = player.getLocation();
+        HumanEntity serverPlayer = new HumanEntity(minecraftServer, serverLevel, setSkin(skinUsersIGN, gameProfile), ClientInformation.createDefault());
+        //ServerPlayer serverPlayer = new ServerPlayer(minecraftServer, serverLevel, setSkin(skinUsersIGN, gameProfile), ClientInformation.createDefault());
         serverPlayer.setPos(location.getX(), location.getY(), location.getZ());
 
         SynchedEntityData synchedEntityData = serverPlayer.getEntityData();
         synchedEntityData.set(new EntityDataAccessor<>(17, EntityDataSerializers.BYTE), (byte) 127);
 
-        PacketUtils.setValue(serverPlayer, "c", ((CraftPlayer) player).getHandle().connection);
+        //PacketUtils.setValue(serverPlayer, "c", ((CraftPlayer) player).getHandle().connection);
 
-        PacketUtils.sendPacket(new ClientboundPlayerInfoUpdatePacket(ClientboundPlayerInfoUpdatePacket.Action.ADD_PLAYER, serverPlayer), player);
+        // PacketUtils.setValue(serverPlayer, "c", ((CraftPlayer) player).getHandle().connection);
+
+//        serverPlayer.connection = ((CraftPlayer) player).getHandle().connection;
+//
+//        PacketUtils.sendPacket(new ClientboundPlayerInfoUpdatePacket(ClientboundPlayerInfoUpdatePacket.Action.ADD_PLAYER, serverPlayer), player);
+
+        ClientboundPlayerInfoUpdatePacketWrapper playerInfoPacket = new ClientboundPlayerInfoUpdatePacketWrapper(
+                EnumSet.of(ClientboundPlayerInfoUpdatePacket.Action.ADD_PLAYER, ClientboundPlayerInfoUpdatePacket.Action.UPDATE_LISTED),
+                serverPlayer,
+                180,
+                true
+        );
+        PacketUtils.sendPacket(playerInfoPacket.getPacket(), player);
+
+
+        serverLevel.addFreshEntity(serverPlayer);
+      //  serverPlayer.connection = null;
+
+
         PacketUtils.sendPacket(new ClientboundAddEntityPacket(serverPlayer), player);
         PacketUtils.sendPacket(new ClientboundSetEntityDataPacket(serverPlayer.getId(), synchedEntityData.getNonDefaultValues()), player);
+
+        serverPlayer.setOwner(nmsPlayer);
+
+
 
         Bukkit.getScheduler().runTaskLaterAsynchronously(SerenityEntities.getInstance(), new Runnable() {
             @Override

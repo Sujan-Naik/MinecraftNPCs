@@ -3,10 +3,12 @@ package com.sereneoasis;
 import com.sereneoasis.command.CreateCommand;
 import com.sereneoasis.listeners.MovementListener;
 import net.minecraft.server.level.ServerPlayer;
+import org.bukkit.Location;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.logging.Logger;
 
@@ -19,10 +21,17 @@ public class SerenityEntities extends JavaPlugin {
     }
 
     //Used to keep our NPCs to be accessed in other classes
-    private List<ServerPlayer> npcs = new ArrayList<>();
-    public List<ServerPlayer> getNpcs() {
+    private HashMap<ServerPlayer, Location> npcs = new HashMap<>();
+    public HashMap<ServerPlayer, Location> getNpcs() {
         return npcs;
     }
+
+    public void updateLocations(){
+        for (ServerPlayer npc : npcs.keySet()){
+            npcs.put(npc, npc.getBukkitEntity().getLocation());
+        }
+    }
+
     private static Logger log;
 
     public static void main(String[] args) {

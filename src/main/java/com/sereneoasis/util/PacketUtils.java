@@ -21,4 +21,8 @@ public class PacketUtils {
             exception.printStackTrace();
         }
     }
+
+    public static short deltaPosition(double current, double prev) {
+        return (short) ((current * 32 - prev * 32) * 128);
+    }
 }

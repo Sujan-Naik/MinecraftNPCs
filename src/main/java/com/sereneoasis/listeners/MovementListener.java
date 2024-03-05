@@ -1,9 +1,12 @@
 package com.sereneoasis.listeners;
 
 import com.sereneoasis.SerenityEntities;
+import com.sereneoasis.util.PacketUtils;
 import net.minecraft.network.protocol.game.ClientboundMoveEntityPacket;
+import net.minecraft.network.protocol.game.ClientboundPlayerPositionPacket;
 import net.minecraft.network.protocol.game.ClientboundRotateHeadPacket;
 import net.minecraft.server.network.ServerGamePacketListenerImpl;
+import net.minecraft.world.entity.Entity;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.craftbukkit.v1_20_R2.entity.CraftPlayer;
@@ -21,31 +24,25 @@ public class MovementListener implements Listener {
         Player p = e.getPlayer();
 
         //Loop through each NPC
-        SerenityEntities.getInstance().getNpcs().stream()
-                .forEach(npc -> {
-                    npc.setInvisible(false);
-                    npc.setGlowingTag(true);
-                    Bukkit.broadcastMessage(String.valueOf(npc.getBukkitEntity().getPlayer().getLocation()));
-                    //The location of the NPC
-                    Location loc = npc.getBukkitEntity().getLocation();
-
-                    //Calculate a new direction by subtracting the location of the player vector from the location vector of the npc
-                    loc.setDirection(p.getLocation().subtract(loc).toVector());
-
-                    //yaw and pitch used to calculate head movement
-                    float yaw = loc.getYaw();
-                    float pitch = loc.getPitch();
-
+        SerenityEntities.getInstance().getNpcs().entrySet().stream()
+                .forEach( (entry) -> {
+                    Entity npc = entry.getKey();
+                    Location oldLoc = entry.getValue();
                     //get the connection so we can send packets in NMS
                     ServerGamePacketListenerImpl ps = ((CraftPlayer) p).getHandle().connection;
+                    Bukkit.broadcastMessage("x should be changing by " + (npc.getX() - oldLoc.getX()));
+                    ClientboundMoveEntityPacket clientboundMoveEntityPacket = new ClientboundMoveEntityPacket.PosRot(npc.getId(),
+                            PacketUtils.deltaPosition(npc.getX(), oldLoc.getX()),
+                            PacketUtils.deltaPosition(npc.getY(), oldLoc.getY()),
+                            PacketUtils.deltaPosition(npc.getZ(), oldLoc.getZ()),
+                            (byte) npc.getBukkitYaw(),
+                            (byte) npc.getBukkitEntity().getPitch(),
+                            npc.onGround);
 
-                    //used for horizontal head movement
-                    ps.send(new ClientboundRotateHeadPacket(npc, (byte) ((yaw%360)*256/360)));
-                    //used for body movement and vertical head movement
-                    ps.send(new ClientboundMoveEntityPacket.Rot(npc.getBukkitEntity().getEntityId(), (byte) ((yaw%360.)*256/360), (byte) ((pitch%360.)*256/360), false));
+                    ps.send(clientboundMoveEntityPacket);
 
                 });
-
+        SerenityEntities.getInstance().updateLocations();
     }
 
 }
