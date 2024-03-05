@@ -1,0 +1,8 @@
+main: com.sereneoasis.SerenityEntities
+name: SerenityEntities
+author: Sakrajin
+version: 1.0.0
+api-version: '1.20'
+commands:
+  create:
+    description: creates npc

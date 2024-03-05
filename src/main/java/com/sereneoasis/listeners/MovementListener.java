@@ -4,6 +4,7 @@ import com.sereneoasis.SerenityEntities;
 import net.minecraft.network.protocol.game.ClientboundMoveEntityPacket;
 import net.minecraft.network.protocol.game.ClientboundRotateHeadPacket;
 import net.minecraft.server.network.ServerGamePacketListenerImpl;
+import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.craftbukkit.v1_20_R2.entity.CraftPlayer;
 import org.bukkit.entity.Player;
@@ -22,9 +23,12 @@ public class MovementListener implements Listener {
         //Loop through each NPC
         SerenityEntities.getInstance().getNpcs().stream()
                 .forEach(npc -> {
-
+                    npc.setInvisible(false);
+                    npc.setGlowingTag(true);
+                    Bukkit.broadcastMessage(String.valueOf(npc.getBukkitEntity().getPlayer().getLocation()));
                     //The location of the NPC
                     Location loc = npc.getBukkitEntity().getLocation();
+
                     //Calculate a new direction by subtracting the location of the player vector from the location vector of the npc
                     loc.setDirection(p.getLocation().subtract(loc).toVector());
 

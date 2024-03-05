@@ -10,7 +10,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.logging.Logger;
 
-public final class SerenityEntities extends JavaPlugin {
+public class SerenityEntities extends JavaPlugin {
 
     private static SerenityEntities instance;
 
@@ -25,15 +25,19 @@ public final class SerenityEntities extends JavaPlugin {
     }
     private static Logger log;
 
+    public static void main(String[] args) {
+
+    }
+
     @Override
     public void onEnable() {
         super.onEnable();
         instance = this;
         SerenityEntities.log = instance.getLogger();
 
-        getCommand("create").setExecutor(new CreateCommand());
+        this.getCommand("create").setExecutor(new CreateCommand());
 
-        getServer().getPluginManager().registerEvents(new MovementListener(), this);
+        this.getServer().getPluginManager().registerEvents(new MovementListener(), this);
 
 
     }
