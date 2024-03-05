@@ -4,6 +4,7 @@ import com.mojang.authlib.GameProfile;
 import com.mojang.authlib.properties.Property;
 import com.mojang.datafixers.util.Pair;
 import com.sereneoasis.SerenityEntities;
+import com.sereneoasis.entity.HumanEntity;
 import com.sereneoasis.util.NPCUtils;
 import com.sereneoasis.util.PacketUtils;
 import net.minecraft.commands.arguments.EntityAnchorArgument;
@@ -60,8 +61,16 @@ public class CreateCommand implements CommandExecutor {
 
 
            // ServerPlayer NPC = NPCUtils.createPlayer(p.getLocation());
-            ServerPlayer npc = NPCUtils.spawnNPC(p.getLocation(), p, "Noob", "Notch");
-            SerenityEntities.getInstance().getNpcs().add(npc);
+
+//            ServerPlayer npc = NPCUtils.spawnNPC(p.getLocation(), p, "Noob", "Notch");
+//            SerenityEntities.getInstance().getNpcs().add(npc);
+            p.sendMessage("command run");
+
+            Location loc = p.getEyeLocation();
+
+            HumanEntity npc = new HumanEntity(loc, p);
+            ServerLevel serverLevel = ((CraftWorld) loc.getWorld()).getHandle();
+            serverLevel.addFreshEntity(npc);
         }
 
         return true;
