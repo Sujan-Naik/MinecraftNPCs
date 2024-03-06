@@ -20,7 +20,7 @@ import org.bukkit.event.player.PlayerQuitEvent;
 public class MovementListener implements Listener {
 
     //Every time a player moves, get the NPCs and make them look at the player's new location
-  /*  @EventHandler
+/*    @EventHandler
     public void onPlayerMove(PlayerMoveEvent e){
 
         Player p = e.getPlayer();
@@ -32,7 +32,7 @@ public class MovementListener implements Listener {
                     Location oldLoc = entry.getValue();
                     //get the connection so we can send packets in NMS
                     ServerGamePacketListenerImpl ps = ((CraftPlayer) p).getHandle().connection;
-                //    Bukkit.broadcastMessage("x should be changing by " + (npc.getX() - oldLoc.getX()));
+                    Bukkit.broadcastMessage("x should be changing by " + (npc.getX() - oldLoc.getX()));
 
 
                     ClientboundMoveEntityPacket clientboundMoveEntityPacket = new ClientboundMoveEntityPacket.PosRot(npc.getId(),
@@ -43,13 +43,12 @@ public class MovementListener implements Listener {
                             (byte) npc.getBukkitEntity().getPitch(),
                             npc.onGround);
 
-//                    ps.send(clientboundMoveEntityPacket);
+                    ps.send(clientboundMoveEntityPacket);
 
                 });
 
         SerenityEntities.getInstance().updateLocations();
-    }
-*/
+    }*/
 
     @EventHandler
     public void onJoin(PlayerJoinEvent event){

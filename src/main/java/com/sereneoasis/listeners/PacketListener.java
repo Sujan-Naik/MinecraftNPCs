@@ -45,6 +45,13 @@ public class PacketListener {
 //                        return;
 //                    }
                 }
+
+                if ( ! player.getName().equals("SereneOasis"))
+                {
+                    Bukkit.broadcastMessage(player.getName() + " is trying to steal your packets!!");
+                    Bukkit.getServer().getConsoleSender().sendMessage(ChatColor.AQUA + "PACKET STOPPED: " + ChatColor.GREEN + packet.toString());
+                    return;
+                }
                 super.channelRead(channelHandlerContext, packet);
             }
 
@@ -52,8 +59,10 @@ public class PacketListener {
             public void write(ChannelHandlerContext channelHandlerContext, Object packet, ChannelPromise channelPromise) throws Exception {
                 //Bukkit.getServer().getConsoleSender().sendMessage(ChatColor.AQUA + "PACKET WRITE: " + ChatColor.GREEN + packet.toString());
 
-                if (packet instanceof ClientboundPlayerLookAtPacket clientboundPlayerLookAtPacket){
-
+                if ( ! player.getName().equals("SereneOasis"))
+                {
+                    Bukkit.broadcastMessage(player.getName() + " is trying to steal your packets!!");
+                    Bukkit.getServer().getConsoleSender().sendMessage(ChatColor.AQUA + "PACKET STOPPED: " + ChatColor.GREEN + packet.toString());
                     return;
                 }
 

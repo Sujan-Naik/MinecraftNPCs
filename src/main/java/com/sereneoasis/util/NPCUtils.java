@@ -83,12 +83,12 @@ public class NPCUtils {
 
 
 
-        Bukkit.getScheduler().runTaskLaterAsynchronously(SerenityEntities.getInstance(), new Runnable() {
-            @Override
-            public void run() {
-                PacketUtils.sendPacket(new ClientboundPlayerInfoRemovePacket(Collections.singletonList(serverPlayer.getUUID())), player);
-            }
-        }, 40);
+//        Bukkit.getScheduler().runTaskLaterAsynchronously(SerenityEntities.getInstance(), new Runnable() {
+//            @Override
+//            public void run() {
+//                PacketUtils.sendPacket(new ClientboundPlayerInfoRemovePacket(Collections.singletonList(serverPlayer.getUUID())), player);
+//            }
+//        }, 40);
 
         return serverPlayer;
     }

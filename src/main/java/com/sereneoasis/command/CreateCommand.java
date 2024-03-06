@@ -38,7 +38,7 @@ public class CreateCommand implements CommandExecutor {
 //            SerenityEntities.getInstance().getNpcs().add(npc);
             player.sendMessage("command run");
             NPCUtils.updateEquipment(npc, player);
-            //SerenityEntities.getInstance().getNpcs().put(npc, npc.getBukkitEntity().getLocation());
+            SerenityEntities.getInstance().getNpcs().put(npc, npc.getBukkitEntity().getLocation());
 
             /*Location loc = p.getEyeLocation();
 
