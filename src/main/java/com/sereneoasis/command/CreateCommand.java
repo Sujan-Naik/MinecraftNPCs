@@ -2,7 +2,9 @@ package com.sereneoasis.command;
 
 import com.sereneoasis.SerenityEntities;
 import com.sereneoasis.entity.BaseZombieEntity;
+import com.sereneoasis.entity.HumanEntity;
 import com.sereneoasis.util.NPCUtils;
+import com.sereneoasis.util.PacketUtils;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import org.bukkit.Location;
@@ -18,7 +20,7 @@ public class CreateCommand implements CommandExecutor {
     @Override
     public boolean onCommand(CommandSender sender, Command command, String s, String[] strings) {
 
-        if (sender instanceof Player p){
+        if (sender instanceof Player player){
 
 
 //            ps.send(new ClientboundSetEquipmentPacket(npc.getBukkitEntity().getEntityId(), List.of(Pair.of(EquipmentSlot.MAINHAND, CraftItemStack.asNMSCopy(item)))));
@@ -32,11 +34,11 @@ public class CreateCommand implements CommandExecutor {
 
            // ServerPlayer NPC = NPCUtils.createPlayer(p.getLocation());
 
-            ServerPlayer npc = NPCUtils.spawnNPC(p.getLocation(), p, "Noob", "asdas");
+            HumanEntity npc = NPCUtils.spawnNPC(player.getLocation(), player, "Noob", "Notch");
 //            SerenityEntities.getInstance().getNpcs().add(npc);
-            p.sendMessage("command run");
-
-            SerenityEntities.getInstance().getNpcs().put(npc, npc.getBukkitEntity().getLocation());
+            player.sendMessage("command run");
+            NPCUtils.updateEquipment(npc, player);
+            //SerenityEntities.getInstance().getNpcs().put(npc, npc.getBukkitEntity().getLocation());
 
             /*Location loc = p.getEyeLocation();
 
