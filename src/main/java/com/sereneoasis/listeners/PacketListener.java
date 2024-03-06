@@ -2,7 +2,9 @@ package com.sereneoasis.listeners;
 
 
 
+import com.sereneoasis.SerenityEntities;
 import io.netty.channel.*;
+import net.md_5.bungee.api.ChatColor;
 import net.minecraft.core.Rotations;
 import net.minecraft.network.protocol.game.*;
 import net.minecraft.network.syncher.EntityDataSerializers;
@@ -32,8 +34,17 @@ public class PacketListener {
             public void channelRead(ChannelHandlerContext channelHandlerContext, Object packet) throws Exception {
                 //Bukkit.getServer().getConsoleSender().sendMessage(ChatColor.YELLOW + "PACKET READ: " + ChatColor.RED + packet.toString());
 
+                //Bukkit.broadcastMessage(String.valueOf(packet.getClass()));
 
+                if (SerenityEntities.getInstance().getNpcs().keySet().stream().anyMatch((serverPlayer) -> serverPlayer.getBukkitEntity().getPlayer() == player))
+                {
 
+                    Bukkit.getServer().getConsoleSender().sendMessage(ChatColor.YELLOW + "PACKET READ: " + ChatColor.RED + packet.toString());
+                    return;
+//                    if (packet instanceof ServerboundPlayerInputPacket){
+//                        return;
+//                    }
+                }
                 super.channelRead(channelHandlerContext, packet);
             }
 
@@ -41,8 +52,10 @@ public class PacketListener {
             public void write(ChannelHandlerContext channelHandlerContext, Object packet, ChannelPromise channelPromise) throws Exception {
                 //Bukkit.getServer().getConsoleSender().sendMessage(ChatColor.AQUA + "PACKET WRITE: " + ChatColor.GREEN + packet.toString());
 
+                if (packet instanceof ClientboundPlayerLookAtPacket clientboundPlayerLookAtPacket){
 
-                Bukkit.broadcastMessage(String.valueOf(packet.getClass()));
+                    return;
+                }
 
                 //if the server is sending a packet, the function "write" will be called. If you want to cancel a specific packet, just use return; Please keep in mind that using the return thing can break the intire server when using the return thing without knowing what you are doing.
                 super.write(channelHandlerContext, packet, channelPromise);

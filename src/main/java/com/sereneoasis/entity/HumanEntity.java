@@ -44,9 +44,19 @@ public class HumanEntity extends ServerPlayer {
         if (owner != null) {
             if (this.distanceToSqr(this.owner) <= 256.0) {
                 this.lookAt(EntityAnchorArgument.Anchor.EYES, owner, EntityAnchorArgument.Anchor.EYES);
+
+                this.moveTo(owner.getPosition(0));
             }
         }
-        this.setDeltaMovement(1,0,0);
+
+        //this.setDeltaMovement(1,0,0);
+
+        //this.setDeltaMovement(1,0,0);
+        //this.setPlayerInput(1, 0,false, false);
+//        if (this.onGround()) {
+//            this.setJumping(true);
+//        }
+
 
     }
 }

@@ -13,12 +13,14 @@ import org.bukkit.craftbukkit.v1_20_R2.entity.CraftPlayer;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
+import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
+import org.bukkit.event.player.PlayerQuitEvent;
 
 public class MovementListener implements Listener {
 
     //Every time a player moves, get the NPCs and make them look at the player's new location
-    @EventHandler
+  /*  @EventHandler
     public void onPlayerMove(PlayerMoveEvent e){
 
         Player p = e.getPlayer();
@@ -30,7 +32,9 @@ public class MovementListener implements Listener {
                     Location oldLoc = entry.getValue();
                     //get the connection so we can send packets in NMS
                     ServerGamePacketListenerImpl ps = ((CraftPlayer) p).getHandle().connection;
-                    Bukkit.broadcastMessage("x should be changing by " + (npc.getX() - oldLoc.getX()));
+                //    Bukkit.broadcastMessage("x should be changing by " + (npc.getX() - oldLoc.getX()));
+
+
                     ClientboundMoveEntityPacket clientboundMoveEntityPacket = new ClientboundMoveEntityPacket.PosRot(npc.getId(),
                             PacketUtils.deltaPosition(npc.getX(), oldLoc.getX()),
                             PacketUtils.deltaPosition(npc.getY(), oldLoc.getY()),
@@ -39,10 +43,21 @@ public class MovementListener implements Listener {
                             (byte) npc.getBukkitEntity().getPitch(),
                             npc.onGround);
 
-                    ps.send(clientboundMoveEntityPacket);
+//                    ps.send(clientboundMoveEntityPacket);
 
                 });
+
         SerenityEntities.getInstance().updateLocations();
     }
+*/
 
+    @EventHandler
+    public void onJoin(PlayerJoinEvent event){
+        SerenityEntities.getPacketListener().injectPlayer(event.getPlayer());
+    }
+
+    @EventHandler
+    public void onLeave(PlayerQuitEvent event){
+        SerenityEntities.getPacketListener().removePlayer(event.getPlayer());
+    }
 }
