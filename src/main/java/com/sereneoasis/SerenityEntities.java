@@ -2,6 +2,7 @@ package com.sereneoasis;
 
 import com.sereneoasis.command.CreateCommand;
 import com.sereneoasis.listeners.MovementListener;
+import com.sereneoasis.listeners.PacketListener;
 import net.minecraft.server.level.ServerPlayer;
 import org.bukkit.Location;
 import org.bukkit.plugin.Plugin;
@@ -26,6 +27,12 @@ public class SerenityEntities extends JavaPlugin {
         return npcs;
     }
 
+    private static PacketListener packetListener;
+
+    public static PacketListener getPacketListener() {
+        return packetListener;
+    }
+
     public void updateLocations(){
         for (ServerPlayer npc : npcs.keySet()){
             npcs.put(npc, npc.getBukkitEntity().getLocation());
@@ -48,7 +55,7 @@ public class SerenityEntities extends JavaPlugin {
 
         this.getServer().getPluginManager().registerEvents(new MovementListener(), this);
 
-
+        packetListener = new PacketListener();
     }
 
     @Override

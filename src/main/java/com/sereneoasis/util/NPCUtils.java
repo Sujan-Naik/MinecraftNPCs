@@ -65,17 +65,17 @@ public class NPCUtils {
 
         // PacketUtils.setValue(serverPlayer, "c", ((CraftPlayer) player).getHandle().connection);
 
-//        serverPlayer.connection = ((CraftPlayer) player).getHandle().connection;
+        serverPlayer.connection = ((CraftPlayer) player).getHandle().connection;
 //
-//        PacketUtils.sendPacket(new ClientboundPlayerInfoUpdatePacket(ClientboundPlayerInfoUpdatePacket.Action.ADD_PLAYER, serverPlayer), player);
+        PacketUtils.sendPacket(new ClientboundPlayerInfoUpdatePacket(ClientboundPlayerInfoUpdatePacket.Action.ADD_PLAYER, serverPlayer), player);
 
-        ClientboundPlayerInfoUpdatePacketWrapper playerInfoPacket = new ClientboundPlayerInfoUpdatePacketWrapper(
-                EnumSet.of(ClientboundPlayerInfoUpdatePacket.Action.ADD_PLAYER, ClientboundPlayerInfoUpdatePacket.Action.UPDATE_LISTED),
-                serverPlayer,
-                180,
-                true
-        );
-        PacketUtils.sendPacket(playerInfoPacket.getPacket(), player);
+//        ClientboundPlayerInfoUpdatePacketWrapper playerInfoPacket = new ClientboundPlayerInfoUpdatePacketWrapper(
+//                EnumSet.of(ClientboundPlayerInfoUpdatePacket.Action.ADD_PLAYER, ClientboundPlayerInfoUpdatePacket.Action.UPDATE_LISTED),
+//                serverPlayer,
+//                180,
+//                true
+//        );
+//        PacketUtils.sendPacket(playerInfoPacket.getPacket(), player);
 
 
         serverLevel.addFreshEntity(serverPlayer);
