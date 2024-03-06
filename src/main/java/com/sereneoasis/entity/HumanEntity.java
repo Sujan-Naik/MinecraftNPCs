@@ -1,24 +1,33 @@
 package com.sereneoasis.entity;
 
+import com.destroystokyo.paper.event.entity.EntityJumpEvent;
 import com.destroystokyo.paper.event.entity.EntityPathfindEvent;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Lists;
 import com.mojang.authlib.GameProfile;
 import com.sereneoasis.SerenityEntities;
 import com.sereneoasis.util.PacketUtils;
+import io.papermc.paper.event.entity.EntityMoveEvent;
 import io.papermc.paper.util.MCUtil;
+import net.minecraft.CrashReport;
+import net.minecraft.CrashReportCategory;
+import net.minecraft.ReportedException;
+import net.minecraft.Util;
+import net.minecraft.advancements.CriteriaTriggers;
 import net.minecraft.commands.arguments.EntityAnchorArgument;
 import net.minecraft.core.BlockPos;
-import net.minecraft.network.protocol.game.ClientboundMoveEntityPacket;
-import net.minecraft.network.protocol.game.ClientboundPlayerInfoUpdatePacket;
-import net.minecraft.network.protocol.game.ClientboundPlayerPositionPacket;
-import net.minecraft.network.protocol.game.ClientboundSetEntityMotionPacket;
+import net.minecraft.network.protocol.Packet;
+import net.minecraft.network.protocol.game.*;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ClientInformation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
+import net.minecraft.tags.FluidTags;
 import net.minecraft.util.Mth;
+import net.minecraft.world.Difficulty;
 import net.minecraft.world.InteractionHand;
+import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.*;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.ai.goal.*;
@@ -35,29 +44,31 @@ import net.minecraft.world.entity.npc.AbstractVillager;
 import net.minecraft.world.entity.projectile.AbstractArrow;
 import net.minecraft.world.entity.projectile.ProjectileUtil;
 import net.minecraft.world.item.BowItem;
+import net.minecraft.world.item.ComplexItem;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.level.GameRules;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.PathNavigationRegion;
 import net.minecraft.world.level.pathfinder.BlockPathTypes;
 import net.minecraft.world.level.pathfinder.Path;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
+import net.minecraft.world.scores.criteria.ObjectiveCriteria;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.craftbukkit.v1_20_R2.CraftServer;
 import org.bukkit.craftbukkit.v1_20_R2.CraftWorld;
+import org.bukkit.craftbukkit.v1_20_R2.CraftWorldBorder;
 import org.bukkit.craftbukkit.v1_20_R2.entity.CraftHumanEntity;
 import org.bukkit.craftbukkit.v1_20_R2.event.CraftEventFactory;
 import org.bukkit.entity.Player;
+import org.bukkit.event.entity.EntityRegainHealthEvent;
 import org.bukkit.event.entity.EntityShootBowEvent;
 import org.bukkit.inventory.ItemStack;
 
 import javax.annotation.Nullable;
-import java.util.Collection;
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -119,7 +130,94 @@ public class HumanEntity extends ServerPlayer {
     @Override
     public void doTick() {
         // super.doTick();
+        /*try {
+            if (this.valid && !this.isSpectator() || !this.touchingUnloadedChunk()) {
+                super.tick();
+            }
+
+            for(int i = 0; i < this.getInventory().getContainerSize(); ++i) {
+                net.minecraft.world.item.ItemStack itemstack = this.getInventory().getItem(i);
+                if (itemstack.getItem().isComplex()) {
+                    Packet<?> packet = ((ComplexItem)itemstack.getItem()).getUpdatePacket(itemstack, this.level(), this);
+                    if (packet != null) {
+                        this.connection.send(packet);
+                    }
+                }
+            }
+
+            if (this.getHealth() != this.lastSentHealth || this.lastSentFood != this.foodData.getFoodLevel() || this.foodData.getSaturationLevel() == 0.0F != this.lastFoodSaturationZero) {
+                this.connection.send(new ClientboundSetHealthPacket(this.getBukkitEntity().getScaledHealth(), this.foodData.getFoodLevel(), this.foodData.getSaturationLevel()));
+                this.lastSentHealth = this.getHealth();
+                this.lastSentFood = this.foodData.getFoodLevel();
+                this.lastFoodSaturationZero = this.foodData.getSaturationLevel() == 0.0F;
+            }
+
+            if (this.getHealth() + this.getAbsorptionAmount() != this.lastRecordedHealthAndAbsorption) {
+                this.lastRecordedHealthAndAbsorption = this.getHealth() + this.getAbsorptionAmount();
+                this.updateScoreForCriteria(ObjectiveCriteria.HEALTH, Mth.ceil(this.lastRecordedHealthAndAbsorption));
+            }
+
+            if (this.foodData.getFoodLevel() != this.lastRecordedFoodLevel) {
+                this.lastRecordedFoodLevel = this.foodData.getFoodLevel();
+                this.updateScoreForCriteria(ObjectiveCriteria.FOOD, Mth.ceil((float)this.lastRecordedFoodLevel));
+            }
+
+            if (this.getAirSupply() != this.lastRecordedAirLevel) {
+                this.lastRecordedAirLevel = this.getAirSupply();
+                this.updateScoreForCriteria(ObjectiveCriteria.AIR, Mth.ceil((float)this.lastRecordedAirLevel));
+            }
+
+            if (this.getArmorValue() != this.lastRecordedArmor) {
+                this.lastRecordedArmor = this.getArmorValue();
+                this.updateScoreForCriteria(ObjectiveCriteria.ARMOR, Mth.ceil((float)this.lastRecordedArmor));
+            }
+
+            if (this.totalExperience != this.lastRecordedExperience) {
+                this.lastRecordedExperience = this.totalExperience;
+                this.updateScoreForCriteria(ObjectiveCriteria.EXPERIENCE, Mth.ceil((float)this.lastRecordedExperience));
+            }
+
+            if (this.maxHealthCache != (double)this.getMaxHealth()) {
+                this.getBukkitEntity().updateScaledHealth();
+            }
+
+            if (this.experienceLevel != this.lastRecordedLevel) {
+                this.lastRecordedLevel = this.experienceLevel;
+                this.updateScoreForCriteria(ObjectiveCriteria.LEVEL, Mth.ceil((float)this.lastRecordedLevel));
+            }
+
+            if (this.totalExperience != this.lastSentExp) {
+                this.lastSentExp = this.totalExperience;
+                this.connection.send(new ClientboundSetExperiencePacket(this.experienceProgress, this.totalExperience, this.experienceLevel));
+            }
+
+            if (this.tickCount % 20 == 0) {
+                CriteriaTriggers.LOCATION.trigger(this);
+            }
+
+            if (this.oldLevel == -1) {
+                this.oldLevel = this.experienceLevel;
+            }
+
+            if (this.oldLevel != this.experienceLevel) {
+                CraftEventFactory.callPlayerLevelChangeEvent(this.getBukkitEntity(), this.oldLevel, this.experienceLevel);
+                this.oldLevel = this.experienceLevel;
+            }
+
+            if (this.getBukkitEntity().hasClientWorldBorder()) {
+                ((CraftWorldBorder)this.getBukkitEntity().getWorldBorder()).getHandle().tick();
+            }
+
+        } catch (Throwable var4) {
+            CrashReport crashreport = CrashReport.forThrowable(var4, "Ticking player");
+            CrashReportCategory crashreportsystemdetails = crashreport.addCategory("Player being ticked");
+            this.fillCrashReportCategory(crashreportsystemdetails);
+            throw new ReportedException(crashreport);
+        }*/
     }
+
+
+
     private void updatingUsingItem() {
         if (this.isUsingItem()) {
             if (net.minecraft.world.item.ItemStack.isSameItem(this.getItemInHand(this.getUsedItemHand()), this.useItem)) {
@@ -129,6 +227,213 @@ public class HumanEntity extends ServerPlayer {
                 this.stopUsingItem();
             }
         }
+
+    }
+
+    public void livingEntityaiStep() {
+       /* if (this.noJumpDelay > 0) {
+            --this.noJumpDelay;
+        }
+
+        if (this.isControlledByLocalInstance()) {
+            this.lerpSteps = 0;
+            this.syncPacketPositionCodec(this.getX(), this.getY(), this.getZ());
+        }
+
+        if (this.lerpSteps > 0) {
+            this.lerpPositionAndRotationStep(this.lerpSteps, this.lerpX, this.lerpY, this.lerpZ, this.lerpYRot, this.lerpXRot);
+            --this.lerpSteps;
+        } else if (!this.isEffectiveAi()) {
+            this.setDeltaMovement(this.getDeltaMovement().scale(0.98));
+        }
+
+        if (this.lerpHeadSteps > 0) {
+            this.lerpHeadRotationStep(this.lerpHeadSteps, this.lerpYHeadRot);
+            --this.lerpHeadSteps;
+        }
+
+        Vec3 vec3d = this.getDeltaMovement();
+        double d0 = vec3d.x;
+        double d1 = vec3d.y;
+        double d2 = vec3d.z;
+        if (Math.abs(vec3d.x) < 0.003) {
+            d0 = 0.0;
+        }
+
+        if (Math.abs(vec3d.y) < 0.003) {
+            d1 = 0.0;
+        }
+
+        if (Math.abs(vec3d.z) < 0.003) {
+            d2 = 0.0;
+        }
+
+        this.setDeltaMovement(d0, d1, d2);
+        this.level().getProfiler().push("ai");
+        if (this.isImmobile()) {
+            this.jumping = false;
+            this.xxa = 0.0F;
+            this.zza = 0.0F;
+        } else if (this.isEffectiveAi()) {
+            this.level().getProfiler().push("newAi");
+            this.serverAiStep();
+            this.level().getProfiler().pop();
+        }
+
+        this.level().getProfiler().pop();
+        this.level().getProfiler().push("jump");
+        if (this.jumping && this.isAffectedByFluids()) {
+            double d3;
+            if (this.isInLava()) {
+                d3 = this.getFluidHeight(FluidTags.LAVA);
+            } else {
+                d3 = this.getFluidHeight(FluidTags.WATER);
+            }
+
+            boolean flag = this.isInWater() && d3 > 0.0;
+            double d4 = this.getFluidJumpThreshold();
+            if (!flag || this.onGround() && !(d3 > d4)) {
+                if (this.isInLava() && (!this.onGround() || d3 > d4)) {
+                    this.jumpInLiquid(FluidTags.LAVA);
+                } else if ((this.onGround() || flag && d3 <= d4) && this.noJumpDelay == 0) {
+                    if ((new EntityJumpEvent(this.getBukkitLivingEntity())).callEvent()) {
+                        this.jumpFromGround();
+                        this.noJumpDelay = 10;
+                    } else {
+                        this.setJumping(false);
+                    }
+                }
+            } else {
+                this.jumpInLiquid(FluidTags.WATER);
+            }
+        } else {
+            this.noJumpDelay = 0;
+        }
+
+        this.level().getProfiler().pop();
+        this.level().getProfiler().push("travel");
+        this.xxa *= 0.98F;
+        this.zza *= 0.98F;
+        this.updateFallFlying();
+        AABB axisalignedbb = this.getBoundingBox();
+        Vec3 vec3d1 = new Vec3((double)this.xxa, (double)this.yya, (double)this.zza);
+        if (this.hasEffect(MobEffects.SLOW_FALLING) || this.hasEffect(MobEffects.LEVITATION)) {
+            this.resetFallDistance();
+        }
+
+        label132: {
+            LivingEntity entityliving = this.getControllingPassenger();
+            if (entityliving instanceof net.minecraft.world.entity.player.Player entityhuman) {
+                if (this.isAlive()) {
+                    this.travelRidden(entityhuman, vec3d1);
+                    break label132;
+                }
+            }
+
+            this.travel(vec3d1);
+        }
+
+        this.level().getProfiler().pop();
+        this.level().getProfiler().push("freezing");
+        if (!this.level().isClientSide && !this.isDeadOrDying() && !this.freezeLocked) {
+            int i = this.getTicksFrozen();
+            if (this.isInPowderSnow && this.canFreeze()) {
+                this.setTicksFrozen(Math.min(this.getTicksRequiredToFreeze(), i + 1));
+            } else {
+                this.setTicksFrozen(Math.max(0, i - 2));
+            }
+        }
+
+        this.removeFrost();
+        this.tryAddFrost();
+        if (!this.level().isClientSide && this.tickCount % 40 == 0 && this.isFullyFrozen() && this.canFreeze()) {
+            this.hurt(this.damageSources().freeze(), 1.0F);
+        }
+
+        this.level().getProfiler().pop();
+        this.level().getProfiler().push("push");
+        if (this.autoSpinAttackTicks > 0) {
+            --this.autoSpinAttackTicks;
+            this.checkAutoSpinAttack(axisalignedbb, this.getBoundingBox());
+        }
+
+        this.pushEntities();
+        this.level().getProfiler().pop();
+        if (((ServerLevel)this.level()).hasEntityMoveEvent && !(this instanceof net.minecraft.world.entity.player.Player) && (this.xo != this.getX() || this.yo != this.getY() || this.zo != this.getZ() || this.yRotO != this.getYRot() || this.xRotO != this.getXRot())) {
+            Location from = new Location(this.level().getWorld(), this.xo, this.yo, this.zo, this.yRotO, this.xRotO);
+            Location to = new Location(this.level().getWorld(), this.getX(), this.getY(), this.getZ(), this.getYRot(), this.getXRot());
+            EntityMoveEvent event = new EntityMoveEvent(this.getBukkitLivingEntity(), from, to.clone());
+            if (!event.callEvent()) {
+                this.absMoveTo(from.getX(), from.getY(), from.getZ(), from.getYaw(), from.getPitch());
+            } else if (!to.equals(event.getTo())) {
+                this.absMoveTo(event.getTo().getX(), event.getTo().getY(), event.getTo().getZ(), event.getTo().getYaw(), event.getTo().getPitch());
+            }
+        }
+
+        if (!this.level().isClientSide && this.isSensitiveToWater() && this.isInWaterRainOrBubble()) {
+            this.hurt(this.damageSources().drown(), 1.0F);
+        }*/
+
+    }
+
+    public void PlayeraiStep() {
+      /*  if (this.jumpTriggerTime > 0) {
+            --this.jumpTriggerTime;
+        }
+
+        if (this.level().getDifficulty() == Difficulty.PEACEFUL && this.level().getGameRules().getBoolean(GameRules.RULE_NATURAL_REGENERATION)) {
+            if (this.getHealth() < this.getMaxHealth() && this.tickCount % 20 == 0) {
+                this.heal(1.0F, EntityRegainHealthEvent.RegainReason.REGEN);
+            }
+
+            if (this.foodData.needsFood() && this.tickCount % 10 == 0) {
+                this.foodData.setFoodLevel(this.foodData.getFoodLevel() + 1);
+            }
+        }
+
+        this.inventory.tick();
+        this.oBob = this.bob;
+        super.aiStep();
+        this.setSpeed((float)this.getAttributeValue(Attributes.MOVEMENT_SPEED));
+        float f;
+        if (this.onGround() && !this.isDeadOrDying() && !this.isSwimming()) {
+            f = Math.min(0.1F, (float)this.getDeltaMovement().horizontalDistance());
+        } else {
+            f = 0.0F;
+        }
+
+        this.bob += (f - this.bob) * 0.4F;
+        if (this.getHealth() > 0.0F && !this.isSpectator()) {
+            AABB axisalignedbb;
+            if (this.isPassenger() && !this.getVehicle().isRemoved()) {
+                axisalignedbb = this.getBoundingBox().minmax(this.getVehicle().getBoundingBox()).inflate(1.0, 0.0, 1.0);
+            } else {
+                axisalignedbb = this.getBoundingBox().inflate(1.0, 0.5, 1.0);
+            }
+
+            List<Entity> list = this.level().getEntities(this, axisalignedbb);
+            List<Entity> list1 = Lists.newArrayList();
+            Iterator iterator = list.iterator();
+
+            while(iterator.hasNext()) {
+                Entity entity = (Entity)iterator.next();
+                if (entity.getType() == EntityType.EXPERIENCE_ORB) {
+                    list1.add(entity);
+                } else if (!entity.isRemoved()) {
+                    this.touch(entity);
+                }
+            }
+
+            if (!list1.isEmpty()) {
+                this.touch((Entity) Util.getRandom(list1, this.random));
+            }
+        }
+
+        this.playShoulderEntityAmbientSound(this.getShoulderEntityLeft());
+        this.playShoulderEntityAmbientSound(this.getShoulderEntityRight());
+        if ((!this.level().isClientSide && (this.fallDistance > 0.5F || this.isInWater()) || this.abilities.flying || this.isSleeping() || this.isInPowderSnow) && !this.level().paperConfig().entities.behavior.parrotsAreUnaffectedByPlayerMovement) {
+            this.removeEntitiesOnShoulder();
+        }*/
 
     }
 
@@ -169,7 +474,7 @@ public class HumanEntity extends ServerPlayer {
         }
 
         if (!this.isRemoved()) {
-            this.aiStep();
+            this.livingEntityaiStep();
         }
 
         double d0 = this.getX() - this.xo;
@@ -225,9 +530,8 @@ public class HumanEntity extends ServerPlayer {
 
     @Override
     public void tick() {
-//        super.tick();
-        this.livingEntityTick();
-        this.travel(new Vec3(0,0,1));
+        super.tick();
+
 
         if (owner != null) {
             if (this.distanceToSqr(this.owner) <= 256.0) {
@@ -260,7 +564,7 @@ public class HumanEntity extends ServerPlayer {
                 this.level().getProfiler().pop();
                 this.level().getProfiler().pop();
 
-
+                this.livingEntityTick();
 
                 //this.moveTo(owner.getPosition(0));
 
