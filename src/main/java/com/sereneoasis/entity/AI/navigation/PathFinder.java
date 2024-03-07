@@ -3,7 +3,7 @@
 // (powered by FernFlower decompiler)
 //
 
-package com.sereneoasis.entity;
+package com.sereneoasis.entity.AI.navigation;
 
 import com.google.common.collect.Lists;
 import java.util.AbstractMap;
@@ -13,6 +13,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import javax.annotation.Nullable;
+
+import com.sereneoasis.entity.HumanEntity;
 import net.minecraft.core.BlockPos;
 import net.minecraft.util.profiling.ProfilerFiller;
 import net.minecraft.util.profiling.metrics.MetricCategory;

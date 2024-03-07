@@ -3,9 +3,11 @@
 // (powered by FernFlower decompiler)
 //
 
-package com.sereneoasis.entity;
+package com.sereneoasis.entity.AI.control;
 
 import java.util.Optional;
+
+import com.sereneoasis.entity.HumanEntity;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;

@@ -3,8 +3,11 @@
 // (powered by FernFlower decompiler)
 //
 
-package com.sereneoasis.entity;
+package com.sereneoasis.entity.AI.control;
 
+import com.sereneoasis.entity.HumanEntity;
+import com.sereneoasis.entity.AI.navigation.NodeEvaluator;
+import com.sereneoasis.entity.AI.navigation.PathNavigation;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction.Axis;
 import net.minecraft.tags.BlockTags;
@@ -102,6 +105,8 @@ public class MoveControl implements Control {
             q = (float)(Mth.atan2(e, d) * 57.2957763671875) - 90.0F;
             this.mob.setYRot(this.rotlerp(this.mob.getYRot(), q, 90.0F));
             this.mob.setSpeed((float)(this.speedModifier * this.mob.getAttributeValue(Attributes.MOVEMENT_SPEED)));
+            mob.zza = ((float)(this.speedModifier * this.mob.getAttributeValue(Attributes.MOVEMENT_SPEED)));
+
             BlockPos blockPos = this.mob.blockPosition();
             BlockState blockState = this.mob.level().getBlockState(blockPos);
             VoxelShape voxelShape = blockState.getCollisionShape(this.mob.level(), blockPos);

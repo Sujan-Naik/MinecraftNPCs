@@ -3,8 +3,9 @@
 // (powered by FernFlower decompiler)
 //
 
-package com.sereneoasis.entity;
+package com.sereneoasis.entity.AI.navigation;
 
+import com.sereneoasis.entity.HumanEntity;
 import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.objects.Object2BooleanMap;

@@ -3,9 +3,11 @@
 // (powered by FernFlower decompiler)
 //
 
-package com.sereneoasis.entity;
+package com.sereneoasis.entity.AI.navigation;
 
 import javax.annotation.Nullable;
+
+import com.sereneoasis.entity.HumanEntity;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.SectionPos;
 import net.minecraft.util.Mth;

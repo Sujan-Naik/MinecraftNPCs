@@ -3,10 +3,11 @@
 // (powered by FernFlower decompiler)
 //
 
-package com.sereneoasis.entity;
+package com.sereneoasis.entity.AI.navigation;
 
 import com.destroystokyo.paper.event.entity.EntityPathfindEvent;
 import com.google.common.collect.ImmutableSet;
+import com.sereneoasis.entity.HumanEntity;
 import io.papermc.paper.util.MCUtil;
 import java.util.Collection;
 import java.util.HashSet;
@@ -17,13 +18,11 @@ import java.util.stream.Stream;
 import javax.annotation.Nullable;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Vec3i;
-import net.minecraft.network.protocol.game.DebugPackets;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.tags.BlockTags;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
 
-import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.PathNavigationRegion;
@@ -36,7 +35,6 @@ import net.minecraft.world.level.pathfinder.Path;
 import net.minecraft.world.level.pathfinder.WalkNodeEvaluator;
 import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.phys.HitResult.Type;
-import org.bukkit.Bukkit;
 
 public abstract class PathNavigation {
     private static final int MAX_TIME_RECOMPUTE = 20;
@@ -57,12 +55,12 @@ public abstract class PathNavigation {
     protected float maxDistanceToWaypoint;
     protected boolean hasDelayedRecomputation;
     protected long timeLastRecompute;
-    protected com.sereneoasis.entity.NodeEvaluator nodeEvaluator;
+    protected NodeEvaluator nodeEvaluator;
     @Nullable
     private BlockPos targetPos;
     private int reachRange;
     private float maxVisitedNodesMultiplier;
-    public final com.sereneoasis.entity.PathFinder pathFinder;
+    public final PathFinder pathFinder;
     private boolean isStuck;
     private int lastFailure;
     private int pathfindFailures;

@@ -3,9 +3,10 @@
 // (powered by FernFlower decompiler)
 //
 
-package com.sereneoasis.entity;
+package com.sereneoasis.entity.AI.control;
 
 
+import com.sereneoasis.entity.HumanEntity;
 import net.minecraft.world.entity.ai.control.Control;
 
 public class JumpControl implements Control {
