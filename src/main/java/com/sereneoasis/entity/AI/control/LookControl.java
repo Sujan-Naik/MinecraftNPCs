@@ -53,6 +53,7 @@ public class LookControl implements Control {
     }
 
     public void tick() {
+
         if (this.resetXRotOnTick()) {
             this.mob.setXRot(0.0F);
         }

@@ -4,11 +4,16 @@ import com.destroystokyo.paper.event.entity.EntityJumpEvent;
 import com.google.common.base.Objects;
 import com.google.common.collect.Lists;
 import com.mojang.authlib.GameProfile;
+import com.sereneoasis.entity.AI.control.BodyRotationControl;
 import com.sereneoasis.entity.AI.control.JumpControl;
 import com.sereneoasis.entity.AI.control.LookControl;
 import com.sereneoasis.entity.AI.control.MoveControl;
+import com.sereneoasis.entity.AI.goal.GoalSelector;
+import com.sereneoasis.entity.AI.goal.MasterGoalSelector;
+import com.sereneoasis.entity.AI.goal.complex.combat.KillTargetEntity;
 import com.sereneoasis.entity.AI.navigation.GroundPathNavigation;
 import com.sereneoasis.entity.AI.navigation.PathNavigation;
+import com.sereneoasis.entity.AI.target.TargetSelector;
 import io.papermc.paper.event.entity.EntityMoveEvent;
 import io.papermc.paper.event.player.PlayerDeepSleepEvent;
 import net.minecraft.Util;
@@ -51,15 +56,12 @@ import net.minecraft.world.level.material.FluidState;
 import net.minecraft.world.level.pathfinder.BlockPathTypes;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
-import org.bukkit.Bukkit;
 import org.bukkit.Location;
-import org.bukkit.Material;
 import org.bukkit.craftbukkit.v1_20_R2.event.CraftEventFactory;
 import org.bukkit.entity.Player;
 import org.bukkit.event.entity.EntityPotionEffectEvent;
 import org.bukkit.event.entity.EntityRegainHealthEvent;
 import org.bukkit.event.entity.EntityShootBowEvent;
-import org.bukkit.inventory.ItemStack;
 
 import javax.annotation.Nullable;
 import java.util.HashSet;
@@ -76,8 +78,10 @@ public class HumanEntity extends ServerPlayer {
 
     private MoveControl moveControl;
 
-    private LookControl lookControl;
+    public LookControl lookControl;
     private JumpControl jumpControl;
+
+    private BodyRotationControl bodyRotationControl;
     private int noJumpDelay;
     private final Inventory inventory = new Inventory(this);
     private BlockState feetBlockState;
@@ -106,14 +110,22 @@ public class HumanEntity extends ServerPlayer {
 
     private final PlayerAdvancements advancements;
 
+    private MasterGoalSelector masterGoalSelector;
+
+    private TargetSelector targetSelector;
+
     public HumanEntity(MinecraftServer server, ServerLevel world, GameProfile profile, ClientInformation clientOptions) {
         super(server, world, profile, clientOptions);
 
         this.moveControl = new MoveControl(this);
         this.jumpControl = new JumpControl(this);
         this.lookControl = new LookControl(this);
+        this.bodyRotationControl = new BodyRotationControl(this);
 
         this.navigation = new GroundPathNavigation(this, world);
+        this.masterGoalSelector = new MasterGoalSelector();
+        this.targetSelector = new TargetSelector(this);
+
 
         this.feetBlockState = null;
         this.remainingFireTicks = -this.getFireImmuneTicks();
@@ -127,8 +139,9 @@ public class HumanEntity extends ServerPlayer {
         this.advancements = server.getPlayerList().getPlayerAdvancements(this);
 
         Player player = this.getBukkitEntity().getPlayer();
-        player.getInventory().addItem(new ItemStack(Material.ARROW, 64));
-        player.getEquipment().setItemInMainHand(new ItemStack(Material.BOW));
+
+//         player.getInventory().addItem(new ItemStack(Material.ARROW, 64));
+//         player.getEquipment().setItemInMainHand(new ItemStack(Material.DIAMOND_SWORD));
 
     }
     public float getPathfindingMalus(BlockPathTypes nodeType) {
@@ -145,10 +158,10 @@ public class HumanEntity extends ServerPlayer {
         this.owner = owner;
     }
 
-    private int attackTime = -1;
-    private int attackIntervalMin = 20;
+    public int attackTime = -1;
+    public int attackIntervalMin = 20;
 
-    private int timeSinceBowDraw = -1;
+    public int timeSinceBowDraw = -1;
 
     public int getMaxHeadXRot() {
         return 40;
@@ -162,6 +175,10 @@ public class HumanEntity extends ServerPlayer {
         return 10;
     }
 
+    protected float tickHeadTurn(float bodyRotation, float headRotation) {
+        this.bodyRotationControl.clientTick();
+        return headRotation;
+    }
 
 
     private void updatingUsingItem() {
@@ -276,7 +293,7 @@ public class HumanEntity extends ServerPlayer {
                 }
             }
 
-            Bukkit.broadcastMessage("travelling " + vec3d1.length() + " distance");
+            // Bukkit.broadcastMessage("travelling " + vec3d1.length() + " distance");
             this.travel(vec3d1);
         }
 
@@ -908,26 +925,24 @@ public class HumanEntity extends ServerPlayer {
         serverPlayerTick();
         doTick();
 
+        masterGoalSelector.tick();
+        targetSelector.tick();
+
+
         if (owner != null) {
-            if (this.distanceToSqr(this.owner) <= 256.0) {
+            if (this.distanceToSqr(this.owner) <= 144.0) {
+                //this.navigation.moveTo(this.owner, 10);
+            }
+            else {
+                if (! masterGoalSelector.hasGoal()) {
+                    masterGoalSelector.addMasterGoal(new KillTargetEntity("kill", this));
+
+                }
+            }
 
 
-                this.lookControl.setLookAt(this.owner, 10.0F, (float)this.getMaxHeadXRot());
-                this.navigation.moveTo(this.owner, 10);
 
-                this.level().getProfiler().push("navigation");
-                this.navigation.tick();
-                this.level().getProfiler().pop();
-
-                this.level().getProfiler().push("controls");
-                this.level().getProfiler().push("move");
-                this.moveControl.tick();
-                this.level().getProfiler().popPush("look");
-                this.lookControl.tick();
-                this.level().getProfiler().popPush("jump");
-                this.jumpControl.tick();
-                this.level().getProfiler().pop();
-                this.level().getProfiler().pop();
+        }
 
 
         /*        if (this.isUsingItem()) {
@@ -943,16 +958,29 @@ public class HumanEntity extends ServerPlayer {
                     timeSinceBowDraw = this.server.getTickCount();
                 }
 */
-               // checkAndPerformAttack(owner);
-            }
+        // checkAndPerformAttack(owner);
 
-           // Bukkit.broadcastMessage(String.valueOf(this.getPosition(0)));
-        }
+
+
+        this.level().getProfiler().push("navigation");
+        this.navigation.tick();
+        this.level().getProfiler().pop();
+
+        this.level().getProfiler().push("controls");
+        this.level().getProfiler().push("move");
+        this.moveControl.tick();
+        this.level().getProfiler().popPush("look");
+        this.lookControl.tick();
+        this.level().getProfiler().popPush("jump");
+        this.jumpControl.tick();
+        this.level().getProfiler().pop();
+        this.level().getProfiler().pop();
     }
 
 
-
-
+    public TargetSelector getTargetSelector() {
+        return targetSelector;
+    }
 
     protected AbstractArrow getArrow(net.minecraft.world.item.ItemStack arrow, float damageModifier) {
         return ProjectileUtil.getMobArrow(this, arrow, damageModifier);
@@ -977,15 +1005,16 @@ public class HumanEntity extends ServerPlayer {
         }
     }
 
-    protected void checkAndPerformAttack(LivingEntity target) {
-        if (this.canAttack(target)) {
+    public boolean checkAndPerformAttack(LivingEntity target) {
+        if (this.canAttack(target) && this.distanceToSqr(target) < 4) {
            // Bukkit.broadcastMessage("test");
             this.resetAttackStrengthTicker();
             this.swing(InteractionHand.MAIN_HAND);
             this.attack(target);
+            return true;
            // this.doHurtTarget(target);
         }
-
+        return false;
     }
 
     public PathNavigation getNavigation() {
