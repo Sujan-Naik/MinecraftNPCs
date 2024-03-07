@@ -16,12 +16,6 @@ public class PunchEntity extends Combat {
     public PunchEntity(String name, HumanEntity npc, int priority, LivingEntity Entity) {
         super(name, npc, priority, Entity);
         this.entity = Entity;
-
-        npc.setItemSlot(EquipmentSlot.MAINHAND, net.minecraft.world.item.ItemStack.fromBukkitCopy(new ItemStack(Material.DIAMOND_SWORD)));
-
-        if (entity instanceof Player player) {
-            player.displayClientMessage(Component.literal("you suck"), true);
-        }
     }
 
     @Override
@@ -31,7 +25,15 @@ public class PunchEntity extends Combat {
 
     @Override
     public void tick(){
-        npc.checkAndPerformAttack(entity);
+        if ( npc.canPerformAttack(entity)) {
+           // npc.setItemSlot(EquipmentSlot.MAINHAND, net.minecraft.world.item.ItemStack.fromBukkitCopy(new ItemStack(Material.DIAMOND_SWORD)));
+
+            if (entity instanceof Player player) {
+                player.displayClientMessage(Component.literal("you suck"), true);
+            }
+
+            npc.performAttack(entity);
+        }
         finished = true;
     }
 }

@@ -5,12 +5,12 @@ import com.sereneoasis.entity.AI.goal.basic.combat.BowRangedAttackEntity;
 import com.sereneoasis.entity.AI.goal.basic.combat.PunchEntity;
 import com.sereneoasis.entity.AI.goal.basic.movement.MoveToEntity;
 import com.sereneoasis.entity.HumanEntity;
-import net.minecraft.world.entity.LivingEntity;
-import net.minecraft.world.entity.player.Player;
 
 public class KillTargetEntity extends MasterCombat{
 
     private int lastShotBowTicks;
+
+    private int lastPunchTicks;
 
     public KillTargetEntity(String name, HumanEntity npc) {
         super(name, npc);
@@ -21,6 +21,7 @@ public class KillTargetEntity extends MasterCombat{
 
         state = NPCStates.AGGRESSIVE;
         this.lastShotBowTicks = npc.tickCount;
+        this.lastPunchTicks = npc.tickCount;
     }
 
     @Override
@@ -28,23 +29,17 @@ public class KillTargetEntity extends MasterCombat{
         super.tick();
         double distance = npc.distanceToSqr(entity);
 
-        if (state != NPCStates.RANGED) {
-            if (distance >= 4) {
-                goalSelector.addGoal(new MoveToEntity("Chase", npc, 3, 2, entity));
-                state = NPCStates.PURSUIT;
-            } else if (state == NPCStates.PURSUIT || state == NPCStates.MELEE) {
-                goalSelector.addGoal(new PunchEntity("Punch", npc, 2, entity));
-                state = NPCStates.MELEE;
-            }
-        } else {
-            if (npc.tickCount - lastShotBowTicks > 20) {
-                state = NPCStates.PURSUIT;
-            }
+        if (!movementGoalSelector.doingGoal("Chase")) {
+            movementGoalSelector.addGoal(new MoveToEntity("Chase", npc, 1, 1, entity));
+        }
+        if (distance <= 4 && npc.tickCount - lastPunchTicks > 5 ) {
+            actionGoalSelector.addGoal(new PunchEntity("Punch", npc, 1, entity));
+            this.lastPunchTicks = npc.tickCount;
         }
 
-        if (distance >= 100 && state == NPCStates.PURSUIT && npc.tickCount - lastShotBowTicks > 100) {
-            state = NPCStates.RANGED;
-            goalSelector.addGoal(new BowRangedAttackEntity("Bow", npc, 1, entity));
+        if (distance >= 100 && npc.tickCount - lastShotBowTicks > 200)
+        {
+            actionGoalSelector.addGoal(new BowRangedAttackEntity("Bow", npc, 1, entity));
             this.lastShotBowTicks = npc.tickCount;
         }
 

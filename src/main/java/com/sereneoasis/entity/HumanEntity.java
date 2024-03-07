@@ -16,11 +16,13 @@ import com.sereneoasis.entity.AI.navigation.PathNavigation;
 import com.sereneoasis.entity.AI.target.TargetSelector;
 import io.papermc.paper.event.entity.EntityMoveEvent;
 import io.papermc.paper.event.player.PlayerDeepSleepEvent;
+import io.papermc.paper.event.player.PrePlayerAttackEntityEvent;
 import net.minecraft.Util;
 import net.minecraft.advancements.CriteriaTriggers;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.network.protocol.game.ClientboundSetEntityMotionPacket;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.PlayerAdvancements;
 import net.minecraft.server.level.ClientInformation;
@@ -28,11 +30,13 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.stats.Stats;
+import net.minecraft.tags.DamageTypeTags;
 import net.minecraft.tags.FluidTags;
 import net.minecraft.tags.TagKey;
 import net.minecraft.util.Mth;
 import net.minecraft.world.Difficulty;
 import net.minecraft.world.InteractionHand;
+import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffectUtil;
 import net.minecraft.world.effect.MobEffects;
@@ -40,13 +44,14 @@ import net.minecraft.world.entity.*;
 
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.animal.Parrot;
+import net.minecraft.world.entity.boss.EnderDragonPart;
+import net.minecraft.world.entity.decoration.ArmorStand;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.projectile.AbstractArrow;
 import net.minecraft.world.entity.projectile.ProjectileUtil;
 import net.minecraft.world.entity.vehicle.Boat;
-import net.minecraft.world.item.ElytraItem;
-import net.minecraft.world.item.ItemCooldowns;
-import net.minecraft.world.item.Items;
+import net.minecraft.world.item.*;
+import net.minecraft.world.item.enchantment.EnchantmentHelper;
 import net.minecraft.world.level.GameRules;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
@@ -56,12 +61,14 @@ import net.minecraft.world.level.material.FluidState;
 import net.minecraft.world.level.pathfinder.BlockPathTypes;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
+import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.craftbukkit.v1_20_R2.event.CraftEventFactory;
+import org.bukkit.craftbukkit.v1_20_R2.util.CraftVector;
 import org.bukkit.entity.Player;
-import org.bukkit.event.entity.EntityPotionEffectEvent;
-import org.bukkit.event.entity.EntityRegainHealthEvent;
-import org.bukkit.event.entity.EntityShootBowEvent;
+import org.bukkit.event.entity.*;
+import org.bukkit.event.player.PlayerVelocityEvent;
+import org.bukkit.util.Vector;
 
 import javax.annotation.Nullable;
 import java.util.HashSet;
@@ -1005,17 +1012,254 @@ public class HumanEntity extends ServerPlayer {
         }
     }
 
-    public boolean checkAndPerformAttack(LivingEntity target) {
+    public boolean canPerformAttack(LivingEntity target) {
         if (this.canAttack(target) && this.distanceToSqr(target) < 4) {
-           // Bukkit.broadcastMessage("test");
-            this.resetAttackStrengthTicker();
-            this.swing(InteractionHand.MAIN_HAND);
-            this.attack(target);
             return true;
-           // this.doHurtTarget(target);
         }
         return false;
     }
+
+    public void checkAndPerformAttack(LivingEntity target) {
+        if (canPerformAttack(target)) {
+            performAttack(target);
+        }
+    }
+
+    public void performAttack(LivingEntity target){
+        this.lookControl.setLookAt(target);
+        this.resetAttackStrengthTicker();
+        this.swing(InteractionHand.MAIN_HAND);
+        this.attack(target);
+    }
+
+    @Override
+    public boolean hurt(DamageSource source, float amount) {
+        if (this.isInvulnerableTo(source)) {
+            return false;
+        } else {
+            boolean flag = this.server.isDedicatedServer() && source.is(DamageTypeTags.IS_FALL);
+            if (!flag && this.spawnInvulnerableTime > 0 && !source.is(DamageTypeTags.BYPASSES_INVULNERABILITY)) {
+                return false;
+            } else {
+                Entity entity = source.getEntity();
+                if (entity instanceof net.minecraft.world.entity.player.Player) {
+                    net.minecraft.world.entity.player.Player entityhuman = (net.minecraft.world.entity.player.Player)entity;
+                    if (!this.canHarmPlayer(entityhuman)) {
+                        return false;
+                    }
+                }
+
+                if (entity instanceof AbstractArrow) {
+                    AbstractArrow entityarrow = (AbstractArrow)entity;
+                    Entity entity1 = entityarrow.getOwner();
+                    if (entity1 instanceof net.minecraft.world.entity.player.Player) {
+                        net.minecraft.world.entity.player.Player entityhuman1 = (net.minecraft.world.entity.player.Player)entity1;
+                        if (!this.canHarmPlayer(entityhuman1)) {
+                            return false;
+                        }
+                    }
+                }
+
+
+                boolean damaged = super.hurt(source, amount);
+
+                return damaged;
+            }
+        }
+    }
+
+    public void attack(Entity target) {
+        boolean willAttack = target.isAttackable() && !target.skipAttackInteraction(this);
+        PrePlayerAttackEntityEvent playerAttackEntityEvent = new PrePlayerAttackEntityEvent((org.bukkit.entity.Player)this.getBukkitEntity(), target.getBukkitEntity(), willAttack);
+        if (!playerAttackEntityEvent.isCancelled() && willAttack) {
+            float f = (float)this.getAttributeValue(Attributes.ATTACK_DAMAGE);
+            float f1;
+            if (target instanceof LivingEntity) {
+                f1 = EnchantmentHelper.getDamageBonus(this.getMainHandItem(), ((LivingEntity)target).getMobType());
+            } else {
+                f1 = EnchantmentHelper.getDamageBonus(this.getMainHandItem(), MobType.UNDEFINED);
+            }
+
+            float f2 = this.getAttackStrengthScale(0.5F);
+            f *= 0.2F + f2 * f2 * 0.8F;
+            f1 *= f2;
+            if (f > 0.0F || f1 > 0.0F) {
+                boolean flag = f2 > 0.9F;
+                boolean flag1 = false;
+                byte b0 = 0;
+                int i = b0 + EnchantmentHelper.getKnockbackBonus(this);
+                if (this.isSprinting() && flag) {
+                    // sendSoundEffect(this, this.getX(), this.getY(), this.getZ(), SoundEvents.PLAYER_ATTACK_KNOCKBACK, this.getSoundSource(), 1.0F, 1.0F);
+                    ++i;
+                    flag1 = true;
+                }
+
+                boolean flag2 = flag && this.fallDistance > 0.0F && !this.onGround() && !this.onClimbable() && !this.isInWater() && !this.hasEffect(MobEffects.BLINDNESS) && !this.isPassenger() && target instanceof LivingEntity;
+                flag2 = flag2 && !this.level().paperConfig().entities.behavior.disablePlayerCrits;
+                flag2 = flag2 && !this.isSprinting();
+                if (flag2) {
+                    f *= 1.5F;
+                }
+
+                f += f1;
+                boolean flag3 = false;
+                double d0 = (double)(this.walkDist - this.walkDistO);
+                if (flag && !flag2 && !flag1 && this.onGround() && d0 < (double)this.getSpeed()) {
+                    ItemStack itemstack = this.getItemInHand(InteractionHand.MAIN_HAND);
+                    if (itemstack.getItem() instanceof SwordItem) {
+                        flag3 = true;
+                    }
+                }
+
+                float f3 = 0.0F;
+                boolean flag4 = false;
+                int j = EnchantmentHelper.getFireAspect(this);
+                if (target instanceof LivingEntity) {
+                    f3 = ((LivingEntity)target).getHealth();
+                    if (j > 0 && !target.isOnFire()) {
+                        EntityCombustByEntityEvent combustEvent = new EntityCombustByEntityEvent(this.getBukkitEntity(), target.getBukkitEntity(), 1);
+                        Bukkit.getPluginManager().callEvent(combustEvent);
+                        if (!combustEvent.isCancelled()) {
+                            flag4 = true;
+                            target.setSecondsOnFire(combustEvent.getDuration(), false);
+                        }
+                    }
+                }
+
+                Vec3 vec3d = target.getDeltaMovement();
+                boolean flag5 = target.hurt(this.damageSources().playerAttack(this).critical(flag2), f);
+                if (flag5) {
+                    if (i > 0) {
+                        if (target instanceof LivingEntity) {
+                            ((LivingEntity)target).knockback((double)((float)i * 0.5F), (double)Mth.sin(this.getYRot() * 0.017453292F), (double)(-Mth.cos(this.getYRot() * 0.017453292F)), this);
+                        } else {
+                            target.push((double)(-Mth.sin(this.getYRot() * 0.017453292F) * (float)i * 0.5F), 0.1, (double)(Mth.cos(this.getYRot() * 0.017453292F) * (float)i * 0.5F), this);
+                        }
+
+                        this.setDeltaMovement(this.getDeltaMovement().multiply(0.6, 1.0, 0.6));
+                        if (!this.level().paperConfig().misc.disableSprintInterruptionOnAttack) {
+                            this.setSprinting(false);
+                        }
+                    }
+
+                    if (flag3) {
+                        float f4 = 1.0F + EnchantmentHelper.getSweepingDamageRatio(this) * f;
+                        List<LivingEntity> list = this.level().getEntitiesOfClass(LivingEntity.class, target.getBoundingBox().inflate(1.0, 0.25, 1.0));
+                        Iterator iterator = list.iterator();
+
+                        label190:
+                        while(true) {
+                            LivingEntity entityliving;
+                            do {
+                                do {
+                                    do {
+                                        do {
+                                            if (!iterator.hasNext()) {
+                                                // sendSoundEffect(this, this.getX(), this.getY(), this.getZ(), SoundEvents.PLAYER_ATTACK_SWEEP, this.getSoundSource(), 1.0F, 1.0F);
+                                                this.sweepAttack();
+                                                break label190;
+                                            }
+
+                                            entityliving = (LivingEntity)iterator.next();
+                                        } while(entityliving == this);
+                                    } while(entityliving == target);
+                                } while(this.isAlliedTo(entityliving));
+                            } while(entityliving instanceof ArmorStand && ((ArmorStand)entityliving).isMarker());
+
+                            if (this.distanceToSqr(entityliving) < 9.0 && entityliving.hurt(this.damageSources().playerAttack(this).sweep().critical(flag2), f4)) {
+                                entityliving.knockback(0.4000000059604645, (double)Mth.sin(this.getYRot() * 0.017453292F), (double)(-Mth.cos(this.getYRot() * 0.017453292F)), this);
+                            }
+                        }
+                    }
+
+                    if (target instanceof ServerPlayer && target.hurtMarked) {
+                        boolean cancelled = false;
+                        org.bukkit.entity.Player player = (org.bukkit.entity.Player)target.getBukkitEntity();
+                        Vector velocity = CraftVector.toBukkit(vec3d);
+                        PlayerVelocityEvent event = new PlayerVelocityEvent(player, velocity.clone());
+                        this.level().getCraftServer().getPluginManager().callEvent(event);
+                        if (event.isCancelled()) {
+                            cancelled = true;
+                        } else if (!velocity.equals(event.getVelocity())) {
+                            player.setVelocity(event.getVelocity());
+                        }
+
+                        if (!cancelled) {
+                            ((ServerPlayer)target).connection.send(new ClientboundSetEntityMotionPacket(target));
+                            target.hurtMarked = false;
+                            target.setDeltaMovement(vec3d);
+                        }
+                    }
+
+                    if (flag2) {
+                        // sendSoundEffect(this, this.getX(), this.getY(), this.getZ(), SoundEvents.PLAYER_ATTACK_CRIT, this.getSoundSource(), 1.0F, 1.0F);
+                        this.crit(target);
+                    }
+
+                    if (!flag2 && !flag3) {
+                        if (flag) {
+                            // sendSoundEffect(this, this.getX(), this.getY(), this.getZ(), SoundEvents.PLAYER_ATTACK_STRONG, this.getSoundSource(), 1.0F, 1.0F);
+                        } else {
+                           //  sendSoundEffect(this, this.getX(), this.getY(), this.getZ(), SoundEvents.PLAYER_ATTACK_WEAK, this.getSoundSource(), 1.0F, 1.0F);
+                        }
+                    }
+
+                    if (f1 > 0.0F) {
+                        this.magicCrit(target);
+                    }
+
+                    this.setLastHurtMob(target);
+                    if (target instanceof LivingEntity) {
+                        EnchantmentHelper.doPostHurtEffects((LivingEntity)target, this);
+                    }
+
+                    EnchantmentHelper.doPostDamageEffects(this, target);
+                    ItemStack itemstack1 = this.getMainHandItem();
+                    Object object = target;
+                    if (target instanceof EnderDragonPart) {
+                        object = ((EnderDragonPart)target).parentMob;
+                    }
+
+                    if (!this.level().isClientSide && !itemstack1.isEmpty() && object instanceof LivingEntity) {
+                        itemstack1.hurtEnemy((LivingEntity)object, this);
+                        if (itemstack1.isEmpty()) {
+                            this.setItemInHand(InteractionHand.MAIN_HAND, ItemStack.EMPTY);
+                        }
+                    }
+
+                    if (target instanceof LivingEntity) {
+                        float f5 = f3 - ((LivingEntity)target).getHealth();
+                        this.awardStat(Stats.DAMAGE_DEALT, Math.round(f5 * 10.0F));
+                        if (j > 0) {
+                            EntityCombustByEntityEvent combustEvent = new EntityCombustByEntityEvent(this.getBukkitEntity(), target.getBukkitEntity(), j * 4);
+                            Bukkit.getPluginManager().callEvent(combustEvent);
+                            if (!combustEvent.isCancelled()) {
+                                target.setSecondsOnFire(combustEvent.getDuration(), false);
+                            }
+                        }
+
+                        if (this.level() instanceof ServerLevel && f5 > 2.0F) {
+                            int k = (int)((double)f5 * 0.5);
+                            ((ServerLevel)this.level()).sendParticles(ParticleTypes.DAMAGE_INDICATOR, target.getX(), target.getY(0.5), target.getZ(), k, 0.1, 0.0, 0.1, 0.2);
+                        }
+                    }
+
+                    this.causeFoodExhaustion(this.level().spigotConfig.combatExhaustion, EntityExhaustionEvent.ExhaustionReason.ATTACK);
+                } else {
+                   //  sendSoundEffect(this, this.getX(), this.getY(), this.getZ(), SoundEvents.PLAYER_ATTACK_NODAMAGE, this.getSoundSource(), 1.0F, 1.0F);
+                    if (flag4) {
+                        target.clearFire();
+                    }
+
+                    if (this instanceof ServerPlayer) {
+                        ((ServerPlayer)this).getBukkitEntity().updateInventory();
+                    }
+                }
+            }
+        }
+
+    }
+
 
     public PathNavigation getNavigation() {
         return navigation;
