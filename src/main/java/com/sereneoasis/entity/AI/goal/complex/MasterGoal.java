@@ -10,6 +10,8 @@ public abstract class MasterGoal extends BaseGoal {
     protected GoalSelector actionGoalSelector;
     protected GoalSelector movementGoalSelector;
 
+    protected GoalSelector lookGoalSelector;
+
     protected NPCStates state;
 
     public MasterGoal(String name, HumanEntity npc) {
@@ -17,6 +19,7 @@ public abstract class MasterGoal extends BaseGoal {
 
         this.actionGoalSelector = new GoalSelector();
         this.movementGoalSelector = new GoalSelector();
+        this.lookGoalSelector = new GoalSelector();
         this.state = NPCStates.RELAXED;
     }
 
@@ -25,5 +28,6 @@ public abstract class MasterGoal extends BaseGoal {
     public void tick() {
         actionGoalSelector.tick();
         movementGoalSelector.tick();
+        lookGoalSelector.tick();
     }
 }

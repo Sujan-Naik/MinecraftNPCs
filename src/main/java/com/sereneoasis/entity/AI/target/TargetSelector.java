@@ -34,22 +34,43 @@ public class TargetSelector {
         this.players = new PriorityQueue<>((a,b ) -> (int) (npc.distanceToSqr(a) - npc.distanceToSqr(b)));
     }
 
+    public boolean noHostile(){
+        return hostileEntityStack.isEmpty();
+    }
+
     public Entity retrieveTopHostile(){
+        if (noHostile()){
+            return null;
+        }
         return hostileEntityStack.poll();
     }
 
+    public boolean noPeaceful(){
+        return peacefulEntityStack.isEmpty();
+
+    }
     public Entity retrieveTopPeaceful(){
+        if (noPeaceful()){
+            return null;
+        }
         return peacefulEntityStack.poll();
     }
 
+    public boolean noPlayer(){
+        return players.isEmpty();
+    }
+
     public Player retrieveTopPlayer(){
+        if (noPlayer()){
+            return null;
+        }
         return players.poll();
     }
 
 
     public void tick(){
 
-        for (Entity entity : npc.level().getEntities(npc,new AABB(npc.getOnPos()).inflate(20))) {
+        for (Entity entity : npc.level().getEntities(npc,new AABB(npc.getOnPos()).inflate(100))) {
             if (entity instanceof Player player){
                 players.add(player);
             }

@@ -26,7 +26,7 @@ public class PunchEntity extends Combat {
     @Override
     public void tick(){
         if ( npc.canPerformAttack(entity)) {
-           // npc.setItemSlot(EquipmentSlot.MAINHAND, net.minecraft.world.item.ItemStack.fromBukkitCopy(new ItemStack(Material.DIAMOND_SWORD)));
+            npc.setItemSlot(EquipmentSlot.MAINHAND, net.minecraft.world.item.ItemStack.fromBukkitCopy(new ItemStack(Material.DIAMOND_SWORD)));
 
             if (entity instanceof Player player) {
                 player.displayClientMessage(Component.literal("you suck"), true);

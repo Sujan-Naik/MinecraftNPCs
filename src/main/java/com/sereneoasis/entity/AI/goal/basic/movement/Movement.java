@@ -2,7 +2,10 @@ package com.sereneoasis.entity.AI.goal.basic.movement;
 
 import com.sereneoasis.entity.AI.goal.basic.BasicGoal;
 import com.sereneoasis.entity.HumanEntity;
+import net.minecraft.core.BlockPos;
 import net.minecraft.world.phys.Vec3;
+
+import java.util.Objects;
 
 public abstract class Movement extends BasicGoal {
 
@@ -14,7 +17,7 @@ public abstract class Movement extends BasicGoal {
         super(name, npc, priority);
 
         this.goalPos = goalPos;
-        this.requiredDistance = 5;
+        this.requiredDistance = requiredDistance;
     }
 
     public Vec3 getGoalPos() {
@@ -26,15 +29,22 @@ public abstract class Movement extends BasicGoal {
     }
 
     public double getDistance(){
-        return goalPos.distanceTo(npc.getPosition(0));
+        return goalPos.distanceTo(npc.getOnPos().getCenter());
     }
 
     @Override
     public void tick() {
+
+//            if (npc.getNavigation().isStuck() ) {
+//                npc.getNavigation().recomputePath();
+//            }
+    if (goalPos != null) {
         if (getDistance() > requiredDistance) {
             npc.getNavigation().moveTo(goalPos.x, goalPos.y, goalPos.z, 10);
+            //  npc.getNavigation().createPath(BlockPos.containing(goalPos), 1000);
         } else {
             finished = true;
         }
+    }
     }
 }

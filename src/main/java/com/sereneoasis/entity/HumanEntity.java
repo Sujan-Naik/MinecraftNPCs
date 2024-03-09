@@ -11,32 +11,47 @@ import com.sereneoasis.entity.AI.control.MoveControl;
 import com.sereneoasis.entity.AI.goal.GoalSelector;
 import com.sereneoasis.entity.AI.goal.MasterGoalSelector;
 import com.sereneoasis.entity.AI.goal.complex.combat.KillTargetEntity;
+import com.sereneoasis.entity.AI.goal.complex.interaction.GatherBlocks;
+import com.sereneoasis.entity.AI.goal.complex.movement.RandomExploration;
 import com.sereneoasis.entity.AI.navigation.GroundPathNavigation;
 import com.sereneoasis.entity.AI.navigation.PathNavigation;
 import com.sereneoasis.entity.AI.target.TargetSelector;
+import io.papermc.paper.adventure.PaperAdventure;
 import io.papermc.paper.event.entity.EntityMoveEvent;
 import io.papermc.paper.event.player.PlayerDeepSleepEvent;
 import io.papermc.paper.event.player.PrePlayerAttackEntityEvent;
+import net.kyori.adventure.text.Component;
+import net.minecraft.ChatFormatting;
 import net.minecraft.Util;
 import net.minecraft.advancements.CriteriaTriggers;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.GlobalPos;
+import net.minecraft.core.NonNullList;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.nbt.CompoundTag;
-import net.minecraft.network.protocol.game.ClientboundSetEntityMotionPacket;
+import net.minecraft.network.PacketSendListener;
+import net.minecraft.network.chat.CommonComponents;
+import net.minecraft.network.chat.HoverEvent;
+import net.minecraft.network.chat.MutableComponent;
+import net.minecraft.network.protocol.game.*;
+import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.PlayerAdvancements;
 import net.minecraft.server.level.ClientInformation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.server.players.PlayerList;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.stats.Stats;
 import net.minecraft.tags.DamageTypeTags;
+import net.minecraft.tags.EntityTypeTags;
 import net.minecraft.tags.FluidTags;
 import net.minecraft.tags.TagKey;
 import net.minecraft.util.Mth;
 import net.minecraft.world.Difficulty;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.damagesource.DamageSource;
+import net.minecraft.world.effect.MobEffect;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffectUtil;
 import net.minecraft.world.effect.MobEffects;
@@ -44,6 +59,7 @@ import net.minecraft.world.entity.*;
 
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.animal.Parrot;
+import net.minecraft.world.entity.animal.Wolf;
 import net.minecraft.world.entity.boss.EnderDragonPart;
 import net.minecraft.world.entity.decoration.ArmorStand;
 import net.minecraft.world.entity.player.Inventory;
@@ -55,26 +71,36 @@ import net.minecraft.world.item.enchantment.EnchantmentHelper;
 import net.minecraft.world.level.GameRules;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.dimension.LevelStem;
 import net.minecraft.world.level.gameevent.GameEvent;
 import net.minecraft.world.level.material.Fluid;
 import net.minecraft.world.level.material.FluidState;
 import net.minecraft.world.level.pathfinder.BlockPathTypes;
+import net.minecraft.world.level.portal.PortalInfo;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
+import net.minecraft.world.scores.Score;
+import net.minecraft.world.scores.Team;
+import net.minecraft.world.scores.criteria.ObjectiveCriteria;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
+import org.bukkit.Material;
+import org.bukkit.craftbukkit.v1_20_R2.CraftEquipmentSlot;
+import org.bukkit.craftbukkit.v1_20_R2.CraftWorld;
 import org.bukkit.craftbukkit.v1_20_R2.event.CraftEventFactory;
+import org.bukkit.craftbukkit.v1_20_R2.inventory.CraftItemStack;
+import org.bukkit.craftbukkit.v1_20_R2.util.CraftLocation;
 import org.bukkit.craftbukkit.v1_20_R2.util.CraftVector;
 import org.bukkit.entity.Player;
 import org.bukkit.event.entity.*;
+import org.bukkit.event.player.PlayerChangedWorldEvent;
+import org.bukkit.event.player.PlayerItemConsumeEvent;
+import org.bukkit.event.player.PlayerTeleportEvent;
 import org.bukkit.event.player.PlayerVelocityEvent;
 import org.bukkit.util.Vector;
 
 import javax.annotation.Nullable;
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Stream;
 
 public class HumanEntity extends ServerPlayer {
@@ -124,6 +150,7 @@ public class HumanEntity extends ServerPlayer {
     public HumanEntity(MinecraftServer server, ServerLevel world, GameProfile profile, ClientInformation clientOptions) {
         super(server, world, profile, clientOptions);
 
+
         this.moveControl = new MoveControl(this);
         this.jumpControl = new JumpControl(this);
         this.lookControl = new LookControl(this);
@@ -144,11 +171,17 @@ public class HumanEntity extends ServerPlayer {
         this.cooldowns = this.createItemCooldowns();
 
         this.advancements = server.getPlayerList().getPlayerAdvancements(this);
+        this.setItemSlot(EquipmentSlot.HEAD, net.minecraft.world.item.ItemStack.fromBukkitCopy(new org.bukkit.inventory.ItemStack(Material.IRON_HELMET)));
+        this.setItemSlot(EquipmentSlot.CHEST, net.minecraft.world.item.ItemStack.fromBukkitCopy(new org.bukkit.inventory.ItemStack(Material.IRON_CHESTPLATE)));
+        this.setItemSlot(EquipmentSlot.LEGS, net.minecraft.world.item.ItemStack.fromBukkitCopy(new org.bukkit.inventory.ItemStack(Material.IRON_LEGGINGS)));
+        this.setItemSlot(EquipmentSlot.FEET, net.minecraft.world.item.ItemStack.fromBukkitCopy(new org.bukkit.inventory.ItemStack(Material.IRON_BOOTS)));
 
-        Player player = this.getBukkitEntity().getPlayer();
+        // Player player = this.getBukkitEntity().getPlayer();
 
 //         player.getInventory().addItem(new ItemStack(Material.ARROW, 64));
 //         player.getEquipment().setItemInMainHand(new ItemStack(Material.DIAMOND_SWORD));
+
+
 
     }
     public float getPathfindingMalus(BlockPathTypes nodeType) {
@@ -244,11 +277,12 @@ public class HumanEntity extends ServerPlayer {
             this.jumping = false;
             this.xxa = 0.0F;
             this.zza = 0.0F;
-        } else if (this.isEffectiveAi()) {
+        }
+        //} else if (this.isEffectiveAi()) {
             this.level().getProfiler().push("newAi");
             this.serverAiStep();
             this.level().getProfiler().pop();
-        }
+        //}
 
         this.level().getProfiler().pop();
         this.level().getProfiler().push("jump");
@@ -546,6 +580,7 @@ public class HumanEntity extends ServerPlayer {
         f2 = this.tickHeadTurn(f1, f2);
         this.level().getProfiler().pop();
         this.level().getProfiler().push("rangeChecks");
+
         this.yRotO += (float)Math.round((this.getYRot() - this.yRotO) / 360.0F) * 360.0F;
         this.yBodyRotO += (float)Math.round((this.yBodyRot - this.yBodyRotO) / 360.0F) * 360.0F;
         this.xRotO += (float)Math.round((this.getXRot() - this.xRotO) / 360.0F) * 360.0F;
@@ -907,8 +942,25 @@ public class HumanEntity extends ServerPlayer {
         this.yCloak += d1 * 0.25;
     }
 
+    public void mobServerAiStep(){
+        this.level().getProfiler().push("navigation");
+        this.navigation.tick();
+        this.level().getProfiler().pop();
+
+        this.level().getProfiler().push("controls");
+        this.level().getProfiler().push("move");
+        this.moveControl.tick();
+        this.level().getProfiler().popPush("look");
+        this.lookControl.tick();
+        this.level().getProfiler().popPush("jump");
+        this.jumpControl.tick();
+        this.level().getProfiler().pop();
+        this.level().getProfiler().pop();
+    }
+
     protected void serverAiStep() {
-        super.serverAiStep();
+        //super.serverAiStep();
+        this.mobServerAiStep();
         this.updateSwingTime();
         this.yHeadRot = this.getYRot();
     }
@@ -932,24 +984,34 @@ public class HumanEntity extends ServerPlayer {
         serverPlayerTick();
         doTick();
 
+//        if (! masterGoalSelector.doingGoal("kill hostile entity")) {
+//            if (targetSelector.retrieveTopHostile() instanceof LivingEntity hostile){
+//                masterGoalSelector.addMasterGoal(new KillTargetEntity("kill hostile entity", this, hostile));
+//            }
+//        }
+
+//        if (!masterGoalSelector.doingGoal("break wood")) {
+//            masterGoalSelector.addMasterGoal(new GatherBlocks("break wood", this, Blocks.OAK_WOOD, 1));
+//        }
+
+        if (!masterGoalSelector.doingGoal("roam")){
+            masterGoalSelector.addMasterGoal(new RandomExploration("roam", this, null));
+        }
+
         masterGoalSelector.tick();
         targetSelector.tick();
 
-
-        if (owner != null) {
-            if (this.distanceToSqr(this.owner) <= 144.0) {
-                //this.navigation.moveTo(this.owner, 10);
-            }
-            else {
-                if (! masterGoalSelector.hasGoal()) {
-                    masterGoalSelector.addMasterGoal(new KillTargetEntity("kill", this));
-
-                }
-            }
-
-
-
-        }
+//        if (owner != null) {
+//            if (this.distanceToSqr(this.owner) <= 144.0) {
+//                //this.navigation.moveTo(this.owner, 10);
+//            }
+//            else {
+//                if (! masterGoalSelector.hasGoal()) {
+//                    masterGoalSelector.addMasterGoal(new KillTargetEntity("kill", this));
+//
+//                }
+//            }
+//        }
 
 
         /*        if (this.isUsingItem()) {
@@ -969,19 +1031,7 @@ public class HumanEntity extends ServerPlayer {
 
 
 
-        this.level().getProfiler().push("navigation");
-        this.navigation.tick();
-        this.level().getProfiler().pop();
 
-        this.level().getProfiler().push("controls");
-        this.level().getProfiler().push("move");
-        this.moveControl.tick();
-        this.level().getProfiler().popPush("look");
-        this.lookControl.tick();
-        this.level().getProfiler().popPush("jump");
-        this.jumpControl.tick();
-        this.level().getProfiler().pop();
-        this.level().getProfiler().pop();
     }
 
 
@@ -1013,7 +1063,7 @@ public class HumanEntity extends ServerPlayer {
     }
 
     public boolean canPerformAttack(LivingEntity target) {
-        if (this.canAttack(target) && this.distanceToSqr(target) < 4) {
+        if (this.canAttack(target) && this.distanceToSqr(target) < 9 && this.lookControl.isLookingAtTarget()) {
             return true;
         }
         return false;
@@ -1026,10 +1076,185 @@ public class HumanEntity extends ServerPlayer {
     }
 
     public void performAttack(LivingEntity target){
-        this.lookControl.setLookAt(target);
         this.resetAttackStrengthTicker();
         this.swing(InteractionHand.MAIN_HAND);
-        this.attack(target);
+        this.lookControl.setLookAt(target);
+         this.attack(target);
+
+        //this.indicateDamage();
+    }
+
+    public boolean livingEntityHurt(DamageSource source, float amount) {
+        if (this.isInvulnerableTo(source)) {
+            return false;
+        } else if (this.level().isClientSide) {
+            return false;
+        } else if (!this.isRemoved() && !this.dead && !(this.getHealth() <= 0.0F)) {
+            if (source.is(DamageTypeTags.IS_FIRE) && this.hasEffect(MobEffects.FIRE_RESISTANCE)) {
+                return false;
+            } else {
+                if (this.isSleeping() && !this.level().isClientSide) {
+                    this.stopSleeping();
+                }
+
+                this.noActionTime = 0;
+                float f1 = amount;
+                boolean flag = amount > 0.0F && this.isDamageSourceBlocked(source);
+                float f2 = 0.0F;
+                if (source.is(DamageTypeTags.IS_FREEZING) && this.getType().is(EntityTypeTags.FREEZE_HURTS_EXTRA_TYPES)) {
+                    amount *= 5.0F;
+                }
+
+                this.walkAnimation.setSpeed(1.5F);
+                boolean flag1 = true;
+                if ((float)this.invulnerableTime > (float)this.invulnerableDuration / 2.0F && !source.is(DamageTypeTags.BYPASSES_COOLDOWN)) {
+                    if (amount <= this.lastHurt) {
+                        return false;
+                    }
+
+                    if (!this.damageEntity0(source, amount - this.lastHurt)) {
+                        return false;
+                    }
+
+                    this.lastHurt = amount;
+                    flag1 = false;
+                } else {
+                    if (!this.damageEntity0(source, amount)) {
+                        return false;
+                    }
+
+                    this.lastHurt = amount;
+                    this.invulnerableTime = this.invulnerableDuration;
+                    this.hurtDuration = 10;
+                    this.hurtTime = this.hurtDuration;
+                }
+
+                Entity entity1 = source.getEntity();
+                if (entity1 != null) {
+                    if (entity1 instanceof LivingEntity) {
+                        LivingEntity entityliving1 = (LivingEntity)entity1;
+                        if (!source.is(DamageTypeTags.NO_ANGER)) {
+                            this.setLastHurtByMob(entityliving1);
+                        }
+                    }
+
+                    if (entity1 instanceof net.minecraft.world.entity.player.Player) {
+                        net.minecraft.world.entity.player.Player entityhuman = (net.minecraft.world.entity.player.Player)entity1;
+                        this.lastHurtByPlayerTime = 100;
+                        this.lastHurtByPlayer = entityhuman;
+                    } else if (entity1 instanceof Wolf) {
+                        Wolf entitywolf = (Wolf)entity1;
+                        if (entitywolf.isTame()) {
+                            this.lastHurtByPlayerTime = 100;
+                            LivingEntity entityliving2 = entitywolf.getOwner();
+                            if (entityliving2 instanceof net.minecraft.world.entity.player.Player) {
+                                net.minecraft.world.entity.player.Player entityhuman1 = (net.minecraft.world.entity.player.Player)entityliving2;
+                                this.lastHurtByPlayer = entityhuman1;
+                            } else {
+                                this.lastHurtByPlayer = null;
+                            }
+                        }
+                    }
+                }
+
+                boolean flag2;
+                if (flag1) {
+                    if (flag) {
+                        this.level().broadcastEntityEvent(this, (byte)29);
+                    } else {
+                        this.level().broadcastDamageEvent(this, source);
+                    }
+
+                    if (!source.is(DamageTypeTags.NO_IMPACT) && (!flag || amount > 0.0F)) {
+                        this.markHurt();
+                    }
+
+                    if (entity1 != null && !source.is(DamageTypeTags.NO_KNOCKBACK)) {
+                        flag2 = entity1.distanceToSqr(this) > 40000.0;
+                        double d0 = flag2 ? Math.random() - Math.random() : entity1.getX() - this.getX();
+
+                        double d1;
+                        for(d1 = flag2 ? Math.random() - Math.random() : entity1.getZ() - this.getZ(); d0 * d0 + d1 * d1 < 1.0E-4; d1 = (Math.random() - Math.random()) * 0.01) {
+                            d0 = (Math.random() - Math.random()) * 0.01;
+                        }
+
+                        this.knockback(0.4000000059604645, d0, d1, entity1);
+                        if (!flag) {
+                          //  this.indicateDamage(d0, d1);
+                        }
+                    }
+                }
+
+                if (this.isDeadOrDying()) {
+//                    if (!this.checkTotemDeathProtection(source)) {
+                        this.silentDeath = !flag1;
+                        this.die(source);
+                        this.silentDeath = false;
+//                    }
+                } else if (flag1) {
+                    this.playHurtSound(source);
+                }
+
+                flag2 = !flag || amount > 0.0F;
+                if (flag2) {
+//                    this.lastDamageSource = source;
+//                    this.lastDamageStamp = this.level().getGameTime();
+                }
+
+                if (this instanceof ServerPlayer) {
+                    CriteriaTriggers.ENTITY_HURT_PLAYER.trigger((ServerPlayer)this, source, f1, amount, flag);
+                    if (f2 > 0.0F && f2 < 3.4028235E37F) {
+                        ((ServerPlayer)this).awardStat(Stats.DAMAGE_BLOCKED_BY_SHIELD, Math.round(f2 * 10.0F));
+                    }
+                }
+
+                if (entity1 instanceof ServerPlayer) {
+                    CriteriaTriggers.PLAYER_HURT_ENTITY.trigger((ServerPlayer)entity1, this, source, f1, amount, flag);
+                }
+
+                return flag2;
+            }
+        } else {
+            return false;
+        }
+    }
+
+    public boolean playerHurt(DamageSource source, float amount) {
+        if (this.isInvulnerableTo(source)) {
+            return false;
+        } else if (this.getAbilities().invulnerable && !source.is(DamageTypeTags.BYPASSES_INVULNERABILITY)) {
+            return false;
+        } else {
+            this.noActionTime = 0;
+            if (this.isDeadOrDying()) {
+                return false;
+            } else {
+                if (!this.level().isClientSide) {
+                }
+
+                if (source.scalesWithDifficulty()) {
+                    if (this.level().getDifficulty() == Difficulty.PEACEFUL) {
+                        return false;
+                    }
+
+                    if (this.level().getDifficulty() == Difficulty.EASY) {
+                        amount = Math.min(amount / 2.0F + 1.0F, amount);
+                    }
+
+                    if (this.level().getDifficulty() == Difficulty.HARD) {
+                        amount = amount * 3.0F / 2.0F;
+                    }
+                }
+
+                // boolean damaged = super.hurt(source, amount);
+                boolean damaged = livingEntityHurt(source, amount);
+                if (damaged) {
+                    this.removeEntitiesOnShoulder();
+                }
+
+                return damaged;
+            }
+        }
     }
 
     @Override
@@ -1061,8 +1286,8 @@ public class HumanEntity extends ServerPlayer {
                 }
 
 
-                boolean damaged = super.hurt(source, amount);
-
+                //boolean damaged = super.hurt(source, amount);
+                boolean damaged = playerHurt(source, amount);
                 return damaged;
             }
         }
@@ -1185,7 +1410,7 @@ public class HumanEntity extends ServerPlayer {
                         }
 
                         if (!cancelled) {
-                            ((ServerPlayer)target).connection.send(new ClientboundSetEntityMotionPacket(target));
+                            // ((ServerPlayer)target).connection.send(new ClientboundSetEntityMotionPacket(target));
                             target.hurtMarked = false;
                             target.setDeltaMovement(vec3d);
                         }
@@ -1425,4 +1650,224 @@ public class HumanEntity extends ServerPlayer {
 //            throw new ReportedException(crashreport);
         //}
     }
+
+    @Override
+    public void onEnterCombat() {
+
+    }
+
+    @Override
+    public void onLeaveCombat() {
+
+    }
+
+    @Override
+    public void die(DamageSource damageSource) {
+        this.gameEvent(GameEvent.ENTITY_DIE);
+        boolean flag = this.level().getGameRules().getBoolean(GameRules.RULE_SHOWDEATHMESSAGES);
+        if (!this.isRemoved()) {
+            List<Entity.DefaultDrop> loot = new ArrayList(this.getInventory().getContainerSize());
+            boolean keepInventory = this.level().getGameRules().getBoolean(GameRules.RULE_KEEPINVENTORY) || this.isSpectator();
+            if (!keepInventory) {
+                Iterator var5 = this.getInventory().getContents().iterator();
+
+                while(var5.hasNext()) {
+                    ItemStack item = (ItemStack)var5.next();
+                    if (!item.isEmpty() && !EnchantmentHelper.hasVanishingCurse(item)) {
+                        loot.add(new Entity.DefaultDrop(item, (stack) -> {
+                            this.drop(stack, true, false);
+                        }));
+                    }
+                }
+            }
+
+            if (this.shouldDropLoot() && this.level().getGameRules().getBoolean(GameRules.RULE_DOMOBLOOT)) {
+                this.dropFromLootTable(damageSource, this.lastHurtByPlayerTime > 0);
+                loot.addAll(this.drops);
+                this.drops.clear();
+            }
+            net.minecraft.network.chat.Component defaultMessage = this.getCombatTracker().getDeathMessage();
+            this.keepLevel = keepInventory;
+            PlayerDeathEvent event = CraftEventFactory.callPlayerDeathEvent(this, loot, PaperAdventure.asAdventure(defaultMessage), defaultMessage.getString(), keepInventory);
+//            if (event.isCancelled()) {
+////                if (this.getHealth() <= 0.0F) {
+////                    this.setHealth((float)event.getReviveHealth());
+////                }
+
+           // } else {
+
+
+
+                this.removeEntitiesOnShoulder();
+
+                this.dropExperience();
+
+//                if (!event.getKeepInventory()) {
+//                    Iterator var13 = this.getInventory().compartments.iterator();
+//
+//                    while(var13.hasNext()) {
+//                        NonNullList<ItemStack> inv = (NonNullList)var13.next();
+//                        processKeep(event, inv);
+//                    }
+//
+//                    processKeep(event, (NonNullList)null);
+//                }
+
+                this.setCamera(this);
+                this.level().getCraftServer().getScoreboardManager().getScoreboardScores(ObjectiveCriteria.DEATH_COUNT, this.getScoreboardName(), Score::increment);
+                LivingEntity entityliving = this.getKillCredit();
+                if (entityliving != null) {
+                    this.awardStat(Stats.ENTITY_KILLED_BY.get(entityliving.getType()));
+                    entityliving.awardKillScore(this, this.deathScore, damageSource);
+                    this.createWitherRose(entityliving);
+                }
+
+                this.level().broadcastEntityEvent(this, (byte)3);
+                this.awardStat(Stats.DEATHS);
+                this.resetStat(Stats.CUSTOM.get(Stats.TIME_SINCE_DEATH));
+                this.resetStat(Stats.CUSTOM.get(Stats.TIME_SINCE_REST));
+                this.clearFire();
+                this.setTicksFrozen(0);
+                this.setSharedFlagOnFire(false);
+                this.getCombatTracker().recheckStatus();
+                this.setLastDeathLocation(Optional.of(GlobalPos.of(this.level().dimension(), this.blockPosition())));
+           // }
+        }
+    }
+
+    @Nullable @Override
+    public Entity changeDimension(ServerLevel worldserver, PlayerTeleportEvent.TeleportCause cause) {
+        return this;
+    }
+
+    @Override
+    protected void completeUsingItem() {
+        if (!this.useItem.isEmpty() && this.isUsingItem()) {
+         //   this.connection.send(new ClientboundEntityEventPacket(this, (byte)9));
+            // super.completeUsingItem();
+            livingEntityCompleteUsingItem();
+        }
+
+    }
+
+    protected void livingEntityCompleteUsingItem() {
+        if (!this.level().isClientSide || this.isUsingItem()) {
+            InteractionHand enumhand = this.getUsedItemHand();
+            if (!this.useItem.equals(this.getItemInHand(enumhand))) {
+                this.releaseUsingItem();
+            } else if (!this.useItem.isEmpty() && this.isUsingItem()) {
+                this.startUsingItem(this.getUsedItemHand(), true);
+                this.triggerItemUseEffects(this.useItem, 16);
+                PlayerItemConsumeEvent event = null;
+                ItemStack itemstack;
+                if (this instanceof ServerPlayer) {
+                    org.bukkit.inventory.ItemStack craftItem = CraftItemStack.asBukkitCopy(this.useItem);
+                    org.bukkit.inventory.EquipmentSlot hand = CraftEquipmentSlot.getHand(enumhand);
+                    event = new PlayerItemConsumeEvent((org.bukkit.entity.Player)this.getBukkitEntity(), craftItem, hand);
+                    this.level().getCraftServer().getPluginManager().callEvent(event);
+                    if (event.isCancelled()) {
+                        this.stopUsingItem();
+                        ((ServerPlayer)this).getBukkitEntity().updateInventory();
+                        ((ServerPlayer)this).getBukkitEntity().updateScaledHealth();
+                        return;
+                    }
+
+                    itemstack = craftItem.equals(event.getItem()) ? this.useItem.finishUsingItem(this.level(), this) : CraftItemStack.asNMSCopy(event.getItem()).finishUsingItem(this.level(), this);
+                } else {
+                    itemstack = this.useItem.finishUsingItem(this.level(), this);
+                }
+
+
+                if (itemstack != this.useItem) {
+                    this.setItemInHand(enumhand, itemstack);
+                }
+
+                this.stopUsingItem();
+                if (this instanceof ServerPlayer) {
+                    ((ServerPlayer)this).getBukkitEntity().updateInventory();
+                }
+            }
+        }
+
+    }
+
+    protected void livingEntityOnEffectAdded(MobEffectInstance effect, @Nullable Entity source) {
+        this.effectsDirty = true;
+        if (!this.level().isClientSide) {
+            effect.getEffect().addAttributeModifiers(this.getAttributes(), effect.getAmplifier());
+            // this.sendEffectToPassengers(effect);
+        }
+
+    }
+
+
+    @Override
+    protected void onEffectAdded(MobEffectInstance effect, @Nullable Entity source) {
+        livingEntityOnEffectAdded(effect, source);
+       // this.connection.send(new ClientboundUpdateMobEffectPacket(this.getId(), effect));
+        if (effect.getEffect() == MobEffects.LEVITATION) {
+            this.levitationStartTime = this.tickCount;
+            this.levitationStartPos = this.position();
+        }
+
+        CriteriaTriggers.EFFECTS_CHANGED.trigger(this, source);
+    }
+
+
+    protected void livingEntityOnEffectUpdated(MobEffectInstance effect, boolean reapplyEffect, @Nullable Entity source) {
+        this.effectsDirty = true;
+        if (reapplyEffect && !this.level().isClientSide) {
+            MobEffect mobeffectlist = effect.getEffect();
+            mobeffectlist.removeAttributeModifiers(this.getAttributes());
+            mobeffectlist.addAttributeModifiers(this.getAttributes(), effect.getAmplifier());
+            // this.refreshDirtyAttributes();
+        }
+
+        if (!this.level().isClientSide) {
+       //     this.sendEffectToPassengers(effect);
+        }
+
+    }
+    @Override
+    protected void onEffectUpdated(MobEffectInstance effect, boolean reapplyEffect, @Nullable Entity source) {
+        livingEntityOnEffectUpdated(effect, reapplyEffect, source);
+  //      this.connection.send(new ClientboundUpdateMobEffectPacket(this.getId(), effect));
+        CriteriaTriggers.EFFECTS_CHANGED.trigger(this, source);
+    }
+
+    protected void livingEntityOnEffectRemoved(MobEffectInstance effect) {
+        this.effectsDirty = true;
+        if (!this.level().isClientSide) {
+            effect.getEffect().removeAttributeModifiers(this.getAttributes());
+          //  this.refreshDirtyAttributes();
+            Iterator iterator = this.getPassengers().iterator();
+
+            while(iterator.hasNext()) {
+                Entity entity = (Entity)iterator.next();
+                if (entity instanceof ServerPlayer) {
+                    ServerPlayer entityplayer = (ServerPlayer)entity;
+           //         entityplayer.connection.send(new ClientboundRemoveMobEffectPacket(this.getId(), effect.getEffect()));
+                }
+            }
+        }
+
+    }
+
+    @Override
+    protected void onEffectRemoved(MobEffectInstance effect) {
+        livingEntityOnEffectRemoved(effect);
+       //  this.connection.send(new ClientboundRemoveMobEffectPacket(this.getId(), effect.getEffect()));
+        if (effect.getEffect() == MobEffects.LEVITATION) {
+            this.levitationStartPos = null;
+        }
+
+        CriteriaTriggers.EFFECTS_CHANGED.trigger(this, (Entity)null);
+    }
+
+    @Override
+    public void indicateDamage(double deltaX, double deltaZ) {
+        this.hurtDir = (float)(Mth.atan2(deltaZ, deltaX) * 57.2957763671875 - (double)this.getYRot());
+        // this.connection.send(new ClientboundHurtAnimationPacket(this));
+    }
+
 }

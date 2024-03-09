@@ -25,6 +25,13 @@ public class MasterGoalSelector {
         return true;
     }
 
+    public boolean doingGoal(String name){
+        if (hasGoal()){
+            return goals.stream().anyMatch(masterGoal -> masterGoal.getName().equals(name));
+        }
+        return false;
+    }
+
     public void tick(){
         if (hasGoal()) {
             if (goals.peek().finished) {

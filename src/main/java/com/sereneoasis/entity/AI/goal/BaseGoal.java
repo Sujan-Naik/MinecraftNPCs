@@ -29,6 +29,10 @@ public abstract class BaseGoal {
         return finished;
     }
 
+    public void setFinished(boolean finished) {
+        this.finished = finished;
+    }
+
     public boolean isInProgress() {
         return inProgress;
     }
