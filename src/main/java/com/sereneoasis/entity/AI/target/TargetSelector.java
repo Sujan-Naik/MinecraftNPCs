@@ -1,8 +1,10 @@
 package com.sereneoasis.entity.AI.target;
 
 import com.sereneoasis.entity.HumanEntity;
+import com.sereneoasis.util.Vec3Utils;
 import net.minecraft.advancements.critereon.MinMaxBounds;
 import net.minecraft.commands.arguments.selector.EntitySelector;
+import net.minecraft.core.BlockPos;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.animal.Animal;
@@ -71,15 +73,14 @@ public class TargetSelector {
     public void tick(){
 
         for (Entity entity : npc.level().getEntities(npc,new AABB(npc.getOnPos()).inflate(100))) {
-            if (entity instanceof Player player){
-                players.add(player);
-            }
-            else if (entity instanceof Monster monster){
-                hostileEntityStack.add(monster);
-            }
-            else if (entity instanceof Animal animal) {
-                peacefulEntityStack.add(animal);
-            }
+
+                if (entity instanceof Player player) {
+                    players.add(player);
+                } else if (entity instanceof Monster monster) {
+                    hostileEntityStack.add(monster);
+                } else if (entity instanceof Animal animal) {
+                    peacefulEntityStack.add(animal);
+                }
         }
     }
 }

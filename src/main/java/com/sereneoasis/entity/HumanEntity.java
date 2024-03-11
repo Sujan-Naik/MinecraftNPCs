@@ -4,6 +4,7 @@ import com.destroystokyo.paper.event.entity.EntityJumpEvent;
 import com.google.common.base.Objects;
 import com.google.common.collect.Lists;
 import com.mojang.authlib.GameProfile;
+import com.mojang.datafixers.util.Pair;
 import com.sereneoasis.entity.AI.control.BodyRotationControl;
 import com.sereneoasis.entity.AI.control.JumpControl;
 import com.sereneoasis.entity.AI.control.LookControl;
@@ -13,9 +14,12 @@ import com.sereneoasis.entity.AI.goal.MasterGoalSelector;
 import com.sereneoasis.entity.AI.goal.complex.combat.KillTargetEntity;
 import com.sereneoasis.entity.AI.goal.complex.interaction.GatherBlocks;
 import com.sereneoasis.entity.AI.goal.complex.movement.RandomExploration;
+import com.sereneoasis.entity.AI.inventory.FoodData;
+import com.sereneoasis.entity.AI.inventory.InventoryTracker;
 import com.sereneoasis.entity.AI.navigation.GroundPathNavigation;
 import com.sereneoasis.entity.AI.navigation.PathNavigation;
 import com.sereneoasis.entity.AI.target.TargetSelector;
+import com.sereneoasis.util.Vec3Utils;
 import io.papermc.paper.adventure.PaperAdventure;
 import io.papermc.paper.event.entity.EntityMoveEvent;
 import io.papermc.paper.event.player.PlayerDeepSleepEvent;
@@ -42,6 +46,7 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.players.PlayerList;
 import net.minecraft.sounds.SoundEvents;
+import net.minecraft.sounds.SoundSource;
 import net.minecraft.stats.Stats;
 import net.minecraft.tags.DamageTypeTags;
 import net.minecraft.tags.EntityTypeTags;
@@ -69,6 +74,7 @@ import net.minecraft.world.entity.vehicle.Boat;
 import net.minecraft.world.item.*;
 import net.minecraft.world.item.enchantment.EnchantmentHelper;
 import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.dimension.LevelStem;
@@ -147,6 +153,11 @@ public class HumanEntity extends ServerPlayer {
 
     private TargetSelector targetSelector;
 
+    private InventoryTracker inventoryTracker;
+
+    public FoodData foodData = new FoodData(this);
+
+
     public HumanEntity(MinecraftServer server, ServerLevel world, GameProfile profile, ClientInformation clientOptions) {
         super(server, world, profile, clientOptions);
 
@@ -159,7 +170,7 @@ public class HumanEntity extends ServerPlayer {
         this.navigation = new GroundPathNavigation(this, world);
         this.masterGoalSelector = new MasterGoalSelector();
         this.targetSelector = new TargetSelector(this);
-
+        this.inventoryTracker = new InventoryTracker(inventory, this);
 
         this.feetBlockState = null;
         this.remainingFireTicks = -this.getFireImmuneTicks();
@@ -377,6 +388,101 @@ public class HumanEntity extends ServerPlayer {
 
         if (!this.level().isClientSide && this.isSensitiveToWater() && this.isInWaterRainOrBubble()) {
             this.hurt(this.damageSources().drown(), 1.0F);
+        }
+
+    }
+
+    @Override
+    public void travel(Vec3 movementInput) {
+        double d0 = this.getX();
+        double d1 = this.getY();
+        double d2 = this.getZ();
+        double d3;
+        if (this.isSwimming() && !this.isPassenger()) {
+            d3 = this.getLookAngle().y;
+            double d4 = d3 < -0.2 ? 0.085 : 0.06;
+            if (d3 <= 0.0 || this.jumping || !this.level().getBlockState(BlockPos.containing(this.getX(), this.getY() + 1.0 - 0.1, this.getZ())).getFluidState().isEmpty()) {
+                Vec3 vec3d1 = this.getDeltaMovement();
+                this.setDeltaMovement(vec3d1.add(0.0, (d3 - vec3d1.y) * d4, 0.0));
+            }
+        }
+
+        if (this.getAbilities().flying && !this.isPassenger()) {
+            d3 = this.getDeltaMovement().y;
+            super.travel(movementInput);
+            Vec3 vec3d2 = this.getDeltaMovement();
+            this.setDeltaMovement(vec3d2.x, d3 * 0.6, vec3d2.z);
+            this.resetFallDistance();
+            if (this.getSharedFlag(7) && !CraftEventFactory.callToggleGlideEvent(this, false).isCancelled()) {
+                this.setSharedFlag(7, false);
+            }
+        } else {
+            super.travel(movementInput);
+        }
+
+        this.checkMovementStatistics(this.getX() - d0, this.getY() - d1, this.getZ() - d2);
+    }
+
+    @Override
+    public void checkMovementStatistics(double dx, double dy, double dz) {
+        if (!this.isPassenger()) {
+            int i;
+            if (this.isSwimming()) {
+                i = Math.round((float)Math.sqrt(dx * dx + dy * dy + dz * dz) * 100.0F);
+                if (i > 0) {
+                    this.awardStat(Stats.SWIM_ONE_CM, i);
+                    this.causeFoodExhaustion(this.level().spigotConfig.swimMultiplier * (float)i * 0.01F, EntityExhaustionEvent.ExhaustionReason.SWIM);
+                }
+            } else if (this.isEyeInFluid(FluidTags.WATER)) {
+                i = Math.round((float)Math.sqrt(dx * dx + dy * dy + dz * dz) * 100.0F);
+                if (i > 0) {
+                    this.awardStat(Stats.WALK_UNDER_WATER_ONE_CM, i);
+                    this.causeFoodExhaustion(this.level().spigotConfig.swimMultiplier * (float)i * 0.01F, EntityExhaustionEvent.ExhaustionReason.WALK_UNDERWATER);
+                }
+            } else if (this.isInWater()) {
+                i = Math.round((float)Math.sqrt(dx * dx + dz * dz) * 100.0F);
+                if (i > 0) {
+                    this.awardStat(Stats.WALK_ON_WATER_ONE_CM, i);
+                    this.causeFoodExhaustion(this.level().spigotConfig.swimMultiplier * (float)i * 0.01F, EntityExhaustionEvent.ExhaustionReason.WALK_ON_WATER);
+                }
+            } else if (this.onClimbable()) {
+                if (dy > 0.0) {
+                    this.awardStat(Stats.CLIMB_ONE_CM, (int)Math.round(dy * 100.0));
+                }
+            } else if (this.onGround()) {
+                i = Math.round((float)Math.sqrt(dx * dx + dz * dz) * 100.0F);
+                if (i > 0) {
+                    if (this.isSprinting()) {
+                        this.awardStat(Stats.SPRINT_ONE_CM, i);
+                        this.causeFoodExhaustion(this.level().spigotConfig.sprintMultiplier * (float)i * 0.01F, EntityExhaustionEvent.ExhaustionReason.SPRINT);
+                    } else if (this.isCrouching()) {
+                        this.awardStat(Stats.CROUCH_ONE_CM, i);
+                        this.causeFoodExhaustion(this.level().spigotConfig.otherMultiplier * (float)i * 0.01F, EntityExhaustionEvent.ExhaustionReason.CROUCH);
+                    } else {
+                        this.awardStat(Stats.WALK_ONE_CM, i);
+                        this.causeFoodExhaustion(this.level().spigotConfig.otherMultiplier * (float)i * 0.01F, EntityExhaustionEvent.ExhaustionReason.WALK);
+                    }
+                }
+            } else if (this.isFallFlying()) {
+                i = Math.round((float)Math.sqrt(dx * dx + dy * dy + dz * dz) * 100.0F);
+                this.awardStat(Stats.AVIATE_ONE_CM, i);
+            } else {
+                i = Math.round((float)Math.sqrt(dx * dx + dz * dz) * 100.0F);
+                if (i > 25) {
+                    this.awardStat(Stats.FLY_ONE_CM, i);
+                }
+            }
+        }
+
+    }
+
+    @Override
+    public void causeFoodExhaustion(float f, EntityExhaustionEvent.ExhaustionReason reason) {
+        if (!this.getAbilities().invulnerable && !this.level().isClientSide) {
+            EntityExhaustionEvent event = CraftEventFactory.callPlayerExhaustionEvent(this, reason, f);
+            if (!event.isCancelled()) {
+                this.foodData.addExhaustion(event.getExhaustion());
+            }
         }
 
     }
@@ -970,6 +1076,7 @@ public class HumanEntity extends ServerPlayer {
         serverPlayerDoTick();
     }
 
+
     @Override
     public void tick() {
         // tick() calls serverPlayerTick() and doTick()
@@ -984,22 +1091,36 @@ public class HumanEntity extends ServerPlayer {
         serverPlayerTick();
         doTick();
 
-//        if (! masterGoalSelector.doingGoal("kill hostile entity")) {
-//            if (targetSelector.retrieveTopHostile() instanceof LivingEntity hostile){
-//                masterGoalSelector.addMasterGoal(new KillTargetEntity("kill hostile entity", this, hostile));
-//            }
-//        }
+
 
 //        if (!masterGoalSelector.doingGoal("break wood")) {
 //            masterGoalSelector.addMasterGoal(new GatherBlocks("break wood", this, Blocks.OAK_WOOD, 1));
 //        }
 
-        if (!masterGoalSelector.doingGoal("roam")){
-            masterGoalSelector.addMasterGoal(new RandomExploration("roam", this, null));
+        if (! masterGoalSelector.doingGoal("kill hostile entity")) {
+            if (targetSelector.retrieveTopHostile() instanceof LivingEntity hostile &&  (!Vec3Utils.isObstructed(this.getPosition(0), hostile.getPosition(0), this.level()))){
+                masterGoalSelector.addMasterGoal(new KillTargetEntity("kill hostile entity", this, hostile));
+            }
+            else {
+                if (!masterGoalSelector.doingGoal("roam")){
+                    masterGoalSelector.addMasterGoal(new RandomExploration("roam", this, null));
+                }
+                if (! inventoryTracker.hasEnoughFood()){
+                    if (! masterGoalSelector.doingGoal("kill food entity")) {
+                        if (targetSelector.retrieveTopPeaceful() instanceof LivingEntity peaceful){
+                            masterGoalSelector.addMasterGoal(new KillTargetEntity("kill food entity", this, peaceful));
+                        }
+                    }
+                } else if (inventoryTracker.hasFood()){
+                    this.eat(this.level(), inventoryTracker.getMostAppropriateFood());
+                }
+            }
         }
+
 
         masterGoalSelector.tick();
         targetSelector.tick();
+        inventoryTracker.tick();
 
 //        if (owner != null) {
 //            if (this.distanceToSqr(this.owner) <= 144.0) {
@@ -1034,6 +1155,46 @@ public class HumanEntity extends ServerPlayer {
 
     }
 
+    private void addEatEffect(ItemStack stack, Level world, LivingEntity targetEntity) {
+        net.minecraft.world.item.Item item = stack.getItem();
+        if (item.isEdible()) {
+            List<Pair<MobEffectInstance, Float>> list = item.getFoodProperties().getEffects();
+            Iterator iterator = list.iterator();
+
+            while(iterator.hasNext()) {
+                Pair<MobEffectInstance, Float> pair = (Pair)iterator.next();
+                if (!world.isClientSide && pair.getFirst() != null && world.random.nextFloat() < (Float)pair.getSecond()) {
+                    targetEntity.addEffect(new MobEffectInstance((MobEffectInstance)pair.getFirst()), EntityPotionEffectEvent.Cause.FOOD);
+                }
+            }
+        }
+
+    }
+
+    public ItemStack livingEntityEat(Level world, ItemStack stack) {
+        if (stack.isEdible()) {
+            world.playSound((net.minecraft.world.entity.player.Player)null, this.getX(), this.getY(), this.getZ(), this.getEatingSound(stack), SoundSource.NEUTRAL, 1.0F, 1.0F + (world.random.nextFloat() - world.random.nextFloat()) * 0.4F);
+            this.addEatEffect(stack, world, this);
+            if (!(this instanceof net.minecraft.world.entity.player.Player) || !((net.minecraft.world.entity.player.Player)this).getAbilities().instabuild) {
+                stack.shrink(1);
+            }
+
+            this.gameEvent(GameEvent.EAT);
+        }
+
+        return stack;
+    }
+
+    public ItemStack playerEat(Level world, ItemStack stack) {
+        this.foodData.eat(stack.getItem(), stack);
+        this.awardStat(Stats.ITEM_USED.get(stack.getItem()));
+        world.playSound((net.minecraft.world.entity.player.Player)null, this.getX(), this.getY(), this.getZ(), SoundEvents.PLAYER_BURP, SoundSource.PLAYERS, 0.5F, world.random.nextFloat() * 0.1F + 0.9F);
+        if (this instanceof ServerPlayer) {
+            CriteriaTriggers.CONSUME_ITEM.trigger((ServerPlayer)this, stack);
+        }
+
+        return livingEntityEat(world, stack);
+    }
 
     public TargetSelector getTargetSelector() {
         return targetSelector;
@@ -1569,6 +1730,9 @@ public class HumanEntity extends ServerPlayer {
                 // super.tick();
                 playerTick();
             }
+
+            // Written by me
+
 
 //            for(int i = 0; i < this.getInventory().getContainerSize(); ++i) {
 //                net.minecraft.world.item.ItemStack itemstack = this.getInventory().getItem(i);

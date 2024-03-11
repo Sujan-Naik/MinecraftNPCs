@@ -15,6 +15,8 @@ public class MoveForward extends Movement{
     //private int lastGoalTicks;
 
     private boolean isStuck = true;
+    private boolean isFucked = false;
+
     public MoveForward(String name, HumanEntity npc, int priority, double requiredDistance) {
         super(name, npc, priority, null, requiredDistance);
       //  this.lastGoalTicks = npc.tickCount;
@@ -22,43 +24,67 @@ public class MoveForward extends Movement{
 
     @Override
     public void tick() {
+     //   if (!isFucked) {
+            //  if (npc.tickCount - lastGoalTicks > 4) {
+            BlockPos floorBlock = npc.getOnPos();
 
-      //  if (npc.tickCount - lastGoalTicks > 4) {
-            Vec3 floorBlockLoc = npc.getOnPos().getCenter().add(npc.getForward().scale(2));
-            if (possible(floorBlockLoc)) {
+            Vec3 currentFloorBlock = floorBlock.getCenter();
+            Vec3 dir = npc.getForward().scale(1);
+            Vec3 nextFloorBlock = currentFloorBlock.add(dir);
+            if (possible(nextFloorBlock)) {
                 isStuck = false;
-                setGoalPos(getNextLoc(floorBlockLoc));
-            //    Bukkit.broadcastMessage("why isn't this moving");
-            }
-            else {
+                Vec3 targetLoc = getNextLoc(nextFloorBlock);
+                npc.getMoveControl().setWantedPosition(targetLoc.x, targetLoc.y, targetLoc.z, 10);
+            } else {
                 isStuck = true;
+                boolean hasAnyValidLocation = false;
+                for (int i = 90; i < 360; i += 90) {
+                    if (possible(currentFloorBlock.add(dir.yRot(i)))) {
+                        hasAnyValidLocation = true;
+                        break;
+                    }
+                }
+                if (!hasAnyValidLocation) {
+                    isFucked = true;
+                } else {
+                    isFucked = false;
+                }
             }
-       //     lastGoalTicks = npc.tickCount;
+            //     lastGoalTicks = npc.tickCount;
+            //  }
+            //super.tick();
+            // npc.travel(new Vec3(0,1,0));
       //  }
-        super.tick();
-        // npc.travel(new Vec3(0,1,0));
     }
 
     private boolean possible(Vec3 floorBlockLoc){
         boolean hasValidLocation = false;
+        BlockPos highestBottom = null;
         for (BlockPos bp :   BlockPos.betweenClosed(BlockPos.containing(floorBlockLoc.add(0,1,0)), BlockPos.containing(floorBlockLoc.subtract(0,3,0)))){
             if (Vec3Utils.isBlockSolid(bp.getCenter(), npc.level()) ){
+//                Bukkit.broadcastMessage("there is a floor");
+                if (highestBottom == null || bp.getY() > highestBottom.getY()){
+                    highestBottom = bp;
+                }
                 hasValidLocation = true;
             }
         }
-        for (BlockPos bp :   BlockPos.betweenClosed(BlockPos.containing(floorBlockLoc.add(0,2,0)), BlockPos.containing(floorBlockLoc.add(0,4,0)))){
-            if (Vec3Utils.isBlockSolid(bp.getCenter(), npc.level()) ){
-                hasValidLocation = false;
+        if (hasValidLocation) {
+            for (BlockPos bp : BlockPos.betweenClosed(highestBottom.above(), highestBottom.above(3))) {
+                if (Vec3Utils.isBlockSolid(bp.getCenter(), npc.level())) {
+                    hasValidLocation = false;
+                }
             }
         }
         return hasValidLocation;
+
 
     }
 
     private Vec3 getNextLoc(Vec3 floorBlockLoc) {
 
-        BlockPos topLoc = BlockPos.containing(floorBlockLoc);
-        for (BlockPos bp :   BlockPos.betweenClosed(BlockPos.containing(floorBlockLoc.subtract(0,1,0)), BlockPos.containing(floorBlockLoc.subtract(0,3,0)))){
+        BlockPos topLoc = BlockPos.containing(floorBlockLoc.subtract(0,3,0));
+        for (BlockPos bp :   BlockPos.betweenClosed(BlockPos.containing(floorBlockLoc.add(0,1,0)), BlockPos.containing(floorBlockLoc.subtract(0,3,0)))){
             if (Vec3Utils.isBlockSolid(bp.getCenter(), npc.level()) && bp.getY() > topLoc.getY() ){
                 topLoc = bp;
             }
@@ -72,5 +98,13 @@ public class MoveForward extends Movement{
 
     public void setStuck(boolean stuck) {
         isStuck = stuck;
+    }
+
+    public boolean isFucked() {
+        return isFucked;
+    }
+
+    public void setFucked(boolean fucked) {
+        isFucked = fucked;
     }
 }

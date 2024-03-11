@@ -4,6 +4,7 @@ import com.sereneoasis.entity.AI.goal.basic.BasicGoal;
 import com.sereneoasis.entity.HumanEntity;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.phys.Vec3;
+import org.bukkit.Bukkit;
 
 import java.util.Objects;
 

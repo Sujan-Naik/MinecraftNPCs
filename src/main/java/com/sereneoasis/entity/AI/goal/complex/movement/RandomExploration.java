@@ -26,17 +26,21 @@ public class RandomExploration extends MasterMovement{
         this.moveForward = new MoveForward("move", npc, 1, 0);
         movementGoalSelector.addGoal(moveForward);
 
-        this.periodicallyRotate = new PeriodicallyRotate("rotate", npc, 1, 20, 30);
-        lookGoalSelector.addGoal(periodicallyRotate);
+        this.periodicallyRotate = new PeriodicallyRotate("rotate", npc, 1, 40, 60);
+        //lookGoalSelector.addGoal(periodicallyRotate);
     }
 
     @Override
     public void tick() {
         super.tick();
+        if (moveForward.isFucked()) {
+            //Bukkit.broadcastMessage("can't go anywhere");
 
-        if (moveForward.isStuck()){
-            periodicallyRotate.prematureRotate();
-            moveForward.tick();
+        } else {
+            if (moveForward.isStuck()) {
+                periodicallyRotate.prematureRotate(180);
+                moveForward.tick();
+            }
         }
     }
 }

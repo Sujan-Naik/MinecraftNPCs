@@ -2,6 +2,7 @@ package com.sereneoasis.entity.AI.goal.basic.look;
 
 import com.sereneoasis.entity.AI.goal.basic.BasicGoal;
 import com.sereneoasis.entity.HumanEntity;
+import org.bukkit.Bukkit;
 
 public class PeriodicallyRotate extends BasicGoal {
 
@@ -18,15 +19,16 @@ public class PeriodicallyRotate extends BasicGoal {
         this.maxRotateRange = maxRotateRange;
     }
 
-    public void prematureRotate(){
-        npc.setYRot((float) (npc.getBukkitYaw() + (Math.random()-0.5 * maxRotateRange)));
+    public void prematureRotate(double temporaryMaxRotateRange){
+        npc.setYRot((float) (npc.getBukkitYaw() +  (Math.random()-0.5) * temporaryMaxRotateRange));
         sinceLastRotate = npc.tickCount;
     }
 
     @Override
     public void tick() {
         if (npc.tickCount - sinceLastRotate > rotateCounter) {
-            npc.setYRot((float) (npc.getBukkitYaw() + (Math.random()-0.5 * maxRotateRange)));
+            //Bukkit.broadcastMessage("rotating head");
+            npc.setYRot((float) (npc.getBukkitYaw() +  (Math.random()-0.5) * maxRotateRange));
             sinceLastRotate = npc.tickCount;
         }
     }

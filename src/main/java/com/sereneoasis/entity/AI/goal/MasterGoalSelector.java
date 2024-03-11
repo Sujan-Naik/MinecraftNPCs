@@ -2,6 +2,7 @@ package com.sereneoasis.entity.AI.goal;
 
 import com.sereneoasis.entity.AI.goal.complex.MasterGoal;
 import com.sereneoasis.entity.HumanEntity;
+import org.bukkit.Bukkit;
 
 import java.util.Stack;
 
@@ -34,11 +35,20 @@ public class MasterGoalSelector {
 
     public void tick(){
         if (hasGoal()) {
+
             if (goals.peek().finished) {
                 goals.pop();
             } else {
+//                Bukkit.broadcastMessage(goals.peek().getName());
+
                 goals.peek().tick();
             }
+        }
+    }
+
+    public void stopCurrentGoal(){
+        if (hasGoal()){
+            goals.pop();
         }
     }
 
