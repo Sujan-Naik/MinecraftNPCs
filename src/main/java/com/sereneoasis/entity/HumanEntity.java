@@ -5,6 +5,9 @@ import com.google.common.base.Objects;
 import com.google.common.collect.Lists;
 import com.mojang.authlib.GameProfile;
 import com.mojang.datafixers.util.Pair;
+import com.sereneoasis.SerenityPlayer;
+import com.sereneoasis.archetypes.sky.HeavenSlash;
+import com.sereneoasis.archetypes.sky.SkyBlast;
 import com.sereneoasis.entity.AI.control.BodyRotationControl;
 import com.sereneoasis.entity.AI.control.JumpControl;
 import com.sereneoasis.entity.AI.control.LookControl;
@@ -1097,6 +1100,11 @@ public class HumanEntity extends ServerPlayer {
 //            masterGoalSelector.addMasterGoal(new GatherBlocks("break wood", this, Blocks.OAK_WOOD, 1));
 //        }
 
+
+//        if (SerenityPlayer.getSerenityPlayer(this.getBukkitEntity()) != null){
+//            new HeavenSlash(this.getBukkitEntity());
+//            Bukkit.broadcastMessage("Works");
+//        }
         if (! masterGoalSelector.doingGoal("kill hostile entity")) {
             if (targetSelector.retrieveTopHostile() instanceof LivingEntity hostile &&  (!Vec3Utils.isObstructed(this.getPosition(0), hostile.getPosition(0), this.level()))){
                 masterGoalSelector.addMasterGoal(new KillTargetEntity("kill hostile entity", this, hostile));

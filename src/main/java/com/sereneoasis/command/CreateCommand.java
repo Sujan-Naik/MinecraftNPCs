@@ -1,12 +1,15 @@
 package com.sereneoasis.command;
 
+import com.sereneoasis.Serenity;
 import com.sereneoasis.SerenityEntities;
+import com.sereneoasis.SerenityPlayer;
 import com.sereneoasis.entity.BaseZombieEntity;
 import com.sereneoasis.entity.HumanEntity;
 import com.sereneoasis.util.NPCUtils;
 import com.sereneoasis.util.PacketUtils;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
@@ -40,6 +43,14 @@ public class CreateCommand implements CommandExecutor {
             NPCUtils.updateEquipment(npc, player);
             SerenityEntities.getInstance().getNpcs().put(npc, npc.getBukkitEntity().getLocation());
 
+
+            Bukkit.broadcastMessage(npc.getUUID().toString());
+            SerenityPlayer.loadPlayer(npc.getUUID(), player);
+
+            Bukkit.getScheduler().runTaskLater(Serenity.getPlugin(), () -> {
+                SerenityPlayer.initialisePlayer(npc.getBukkitEntity());
+
+            }, 150L);
             /*Location loc = p.getEyeLocation();
 
             BaseZombieEntity npc = new BaseZombieEntity(loc, p);
