@@ -2,8 +2,7 @@
 __This plugin makes it possible to spawn NPCs that behave almost indistinguishably from players__ 
 
 This is a type of weak AI (namely Reactive Machine AI) because it does not have a memory and can only perform behaviour that is pre-determined.
-
-However the Minecraft world is technically not stochastic so this is not an issue.  
+However the Minecraft world is technically not stochastic so this doesn't serve as that much of an issue.
 
 ## Features:
 > Intelligent pathfinding
